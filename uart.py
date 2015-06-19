@@ -52,6 +52,8 @@ class Uart():
 			self.status_chagne_hook(self.name, False)
 			return
 
+		# self.uart_handle.flushInput()
+		self.uart_handle.flushOutput()
 		self.log.write('%s open uart port %s: OK', MODULE, port)
 		self.status_chagne_hook(self.name, True)
 
@@ -71,10 +73,8 @@ class Uart():
 				pass
 
 	def send(self, data):
-		print 'try to end data to dut:' + data
 		if self.uart_handle.isOpen():
 			# self.uart_handle.writelines(data)
-			data = 'abc'
 			self.uart_handle.write(data)
 			# try:
 			# 	self.uart_handle.writelines(data)

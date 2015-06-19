@@ -248,32 +248,40 @@ class Ui:
 		self.text_dialog.insert(END, msg, color)
 		self.text_dialog.see(END)
 
-	def strip_end(self, cmd):
-		if cmd.endswith('\n\n'):
-			# return cmd[:-2]
+	def remove_duplicated_cr(self, cmd):
+		if cmd.endswith('\n\r\n'):
+			return cmd[:-2]
+		elif cmd.endswith('\n\n'):
 			return cmd[:-1]
-		elif cmd.endswith('\n'):
-			# return cmd[:-1]
+		else:
 			return cmd
+
+	def remove_cr(self, cmd):
+		if cmd.endswith('\n\n'):
+			return cmd[:-2]
+		elif cmd.endswith('\n'):
+			return cmd[:-1]
 		else:
 			return cmd
 
 
 	def on_send_msg(self, x):
 		data = self.text_input.get(0.0, END)
-		data = self.strip_end(data)
+		data = data.encode('utf8')
+		data = self.remove_duplicated_cr(data)
 
 		# only <\n> input, exit
 		if not data:
 			self.text_input.delete(0.0, END)
 			return
 
-		# send cmd to board
-		self.handle_data_from_ui('send_to_dut', data)
-
 		# move msg from text_input to text_history
 		self.text_input.delete(0.0, END)
 		self.ui_append_dialog('local', data)
+
+		# send cmd to board
+		# data = self.remove_cr(data)
+		self.handle_data_from_ui('send_to_dut', data)
 
 	def start_zero_cal(self):
 		pass

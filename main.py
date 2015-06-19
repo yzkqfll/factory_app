@@ -53,6 +53,7 @@ class Ibaby:
 	# get data from DUT UART
 	def uart_dut_recv(self, data):
 		# show it in UI
+		# print ">>>" + data,
 		self.ui.ui_append_dialog('board', data)
 		pass
 
@@ -62,7 +63,6 @@ class Ibaby:
 
 	def get_data_from_ui(self, type, data):
 		if type == 'send_to_dut':
-			print 'get data from ui:' + data,
 			self.uart_dut.send(data)
 
 		elif type == 'uart_dut_port_changed':
