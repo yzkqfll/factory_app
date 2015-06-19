@@ -1,0 +1,3 @@
+[ALL]
+uart_dut_port = com5
+
