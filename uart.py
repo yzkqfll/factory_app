@@ -49,13 +49,19 @@ class Uart():
 			time.sleep(0.5)
 		except:
 			self.log.write('%s can not open uart port %s', MODULE, port)
-			self.status_chagne_hook(self.name, False)
+			self.status_chagne_hook(self.name, 'open_fail')
 			return
 
 		# self.uart_handle.flushInput()
 		self.uart_handle.flushOutput()
 		self.log.write('%s open uart port %s: OK', MODULE, port)
-		self.status_chagne_hook(self.name, True)
+		self.status_chagne_hook(self.name, 'open_ok')
+
+	def close(self):
+		if self.uart_handle.isOpen():
+			self.uart_handle.close()
+			self.log.write('%s close uart port %s: OK', MODULE, self.uart_handle.port)
+			self.status_chagne_hook(self.name, 'close_ok')
 
 	def recv(self, x):
 		while True:
@@ -63,23 +69,23 @@ class Uart():
 			if self.uart_handle.isOpen():
 				try:
 					data = self.uart_handle.readline()
-					# print data,
-					self.recv_hook(data)
+					# print 'get data<' + data + '>'
+					# print len(data)
+					if data:
+						self.recv_hook(data)
 				except:
 					pass
-			try:
-				time.sleep(0.2)
-			except:
-				pass
 
 	def send(self, data):
 		if self.uart_handle.isOpen():
 			# self.uart_handle.writelines(data)
-			self.uart_handle.write(data)
-			# try:
-			# 	self.uart_handle.writelines(data)
-			# except:
-			# 	pass
+			# print 'send data<' + data + '>'
+			# print len(data)
+			# self.uart_handle.write(data)
+			try:
+				self.uart_handle.writelines(data)
+			except:
+				pass
 		else:
 			return False
 

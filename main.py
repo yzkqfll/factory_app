@@ -23,6 +23,10 @@ class Ibaby:
 				time.sleep(0.1)
 			except:
 				pass
+		try:
+			time.sleep(0.1)
+		except:
+			pass
 
 		# Config
 		self.sys_config = config.Config(self.log)
@@ -43,10 +47,12 @@ class Ibaby:
 		# 	self.uart_std.open(self.uart_std_port, 115200, 8, 'N', 1)
 
 	def uart_status_change(self, type, status):
-		if status:
-			data = '串口打开成功'
-		else:
-			data = '串口打开失败'
+		if status == 'open_ok':
+			data = '连接'
+		elif status == 'open_fail':
+			data = '断开'
+		elif status == 'close_ok':
+			data = '断开'
 
 		self.ui.update_ui('uart_' + type + '_status', data)
 
@@ -65,11 +71,15 @@ class Ibaby:
 		if type == 'send_to_dut':
 			self.uart_dut.send(data)
 
-		elif type == 'uart_dut_port_changed':
+		elif type == 'uart_dut_port_connect':
 			self.uart_dut_port = data
 			self.sys_config.set('uart_dut_port', self.uart_dut_port)
 
 			self.uart_dut.open(self.uart_dut_port, 115200, 8, 'N', 1)
+
+		elif type == 'uart_dut_port_disconnect':
+			self.uart_dut_port = data
+			self.uart_dut.close()
 
 		elif type == 'zero_calibration':
 			pass

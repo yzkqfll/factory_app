@@ -34,16 +34,17 @@ class Ui:
 		# launch UI
 		self.ui_mainloop_thread = thread.start_new_thread(self.lanuch_ui, (None, ))
 
+
 	def lanuch_ui(self, x):
 		self.log.write('%s launch ui', MODULE)
 
 		# create main window
 		self.main_win = main_win = Tk()
 		main_win.title(SOFTWARE_NAME + VERSION)
-		self.set_win_geometry(main_win, 900, 600, 5)
+		self.set_win_geometry(main_win, 1000, 700, 6)
 
 		# font
-		self.font_dialog = tkFont.Font(family = '宋体', size = 11, weight = "bold")
+		self.font_dialog = tkFont.Font(family = '宋体', size = 10, weight = "bold")
 		self.font_input = tkFont.Font(family = '宋体', size = 11, weight = "bold")
 
 		# String var
@@ -56,7 +57,7 @@ class Ui:
 
 		self.self_zero_adc = StringVar()
 
-		# create menu
+		# menu
 		menu_base = Menu(main_win)
 		main_win.config(menu = menu_base)
 
@@ -73,14 +74,21 @@ class Ui:
 		menu_cascade_help.add_command(label = "关于" + SOFTWARE_NAME, command = self.menu_item_about)
 		menu_base.add_cascade(label="帮助", menu = menu_cascade_help)
 
-		# text history
+		x_base = 10
+		y_base = 20
+		x_pos = x_base
+		y_pos = y_base
+
+		# text dialog
 		self.scrollbar = Scrollbar(main_win)
-		self.text_dialog = self.text_dialog = Text(main_win, height=20, width=70,
+		self.text_dialog = Text(main_win, height=20, width=70,
 									yscrollcommand = self.scrollbar.set, font = self.font_dialog, bg = 'gray')
-		self.text_dialog.place(x = 10, y = 20, width = 560, height = 400)
+		x_pos += 0; y_pos += 0; ww = 600; hh = 500
+		self.text_dialog.place(x = x_pos, y = y_pos, width = ww, height = hh)
 		#t.bind("<KeyPress>", lambda e : "break")
 		self.scrollbar.config(command = self.text_dialog.yview)
-		self.scrollbar.place(x = 570, y = 20, width = 20, height = 400)
+		x_pos += ww; y_pos += 0; ww = 20; hh = 500
+		self.scrollbar.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		self.text_dialog.tag_config('fg_blue',foreground = 'blue') # create tag
 		self.text_dialog.tag_config('fg_darkred',foreground = 'darkred')
@@ -88,31 +96,83 @@ class Ui:
 		# indicating bar(such as: typing)
 		l = Label(main_win, textvariable = self.indicating_bar_var, anchor = 'w')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 10, y = 420, width = 300, height = 25)
+		x_pos = x_base; y_pos += hh; ww = 300; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		# text input
 		self.text_input = Text(main_win, height = 6, width=70, font = self.font_input)
-		self.text_input.place(x = 10, y = 445, width = 580, height = 135)
+		x_pos = x_base; y_pos += hh; ww = 620; hh = 135
+		self.text_input.place(x = x_pos, y = y_pos, width = ww, height = hh)
 		#t.bind("<Return>", self.on_send_msg)
 		self.text_input.bind("<KeyRelease-Return>", self.on_send_msg)
 
-		# seperator
-		l = Label(main_win, text = '-----------------------串口信息-----------------------', anchor = 'w')
+		x_base = 630
+		y_base = 10
+		x_pos = x_base
+		y_pos = y_base
+
+		l = Label(main_win, text = '------------------------------串口信息------------------------------', anchor = 'w')
 		l.config(fg = 'DarkGreen')
-		l.place(x = 600, y = 10, width = 300, height = 25)
+		x_pos += 0; y_pos += 0; ww = 370; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		# UART DUT
 		l = Label(main_win, text = 'DUT', anchor = 'w')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 600, y = 40, width = 30, height = 25)
+		x_pos = x_base + 10; y_pos += hh; ww = 30; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		self.uart_dut = Entry(main_win, width = 10, textvariable = self.uart_dut_port_var)
-		self.uart_dut.place(x = 640, y = 40, width = 90, height = 25)
-		self.uart_dut.bind("<KeyRelease-Return>", self.uart_dut_port_changed)
+		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
+		self.uart_dut.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.uart_dut.bind("<KeyRelease-Return>", self.uart_dut_port_connect2)
 
 		l = Label(main_win, textvariable = self.uart_dut_status_var, anchor = 'w')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 750, y = 40, width = 80, height = 25)
+		x_pos += ww + 10; y_pos += 0; ww = 80; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		self.button_dut_connect = Button(main_win, text = '连接', command = self.uart_dut_port_connect, width = 10)
+		# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
+		self.button_dut_connect.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		self.button_dut_disconnect = Button(main_win, text = '断开', command = self.uart_dut_port_disconnect, width = 10)
+		# self.button_dut_disconnect['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
+		self.button_dut_disconnect.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		# UART STD
+		l = Label(main_win, text = 'STD', anchor = 'w')
+		l.config(fg = 'DarkBlue')
+		x_pos = x_base + 10; y_pos += 30; ww = 30; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		self.uart_std = Entry(main_win, width = 10, textvariable = self.uart_std_port_var)
+		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
+		self.uart_std.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.uart_std.bind("<KeyRelease-Return>", self.uart_std_port_connect)
+
+		l = Label(main_win, textvariable = self.uart_std_status_var, anchor = 'w')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww + 10; y_pos += 0; ww = 80; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		self.button_std_connect = Button(main_win, text = '连接', command = self.uart_std_port_connect, width = 10)
+		# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
+		self.button_std_connect.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		self.button_std_disconnect = Button(main_win, text = '断开', command = self.uart_std_port_connect, width = 10)
+		# self.button_dut_disconnect['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
+		self.button_std_disconnect.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		# Start main window
+		self.window_ok = True
+		self.main_win.mainloop()
+		# when running here, the main window is died
+		self.window_ok = False
 
 		# UART STD
 		l = Label(main_win, text = 'STD', anchor = 'w')
@@ -243,7 +303,7 @@ class Ui:
 			sender = 'Board' + ' ['+ time.strftime('%H:%M:%S',time.localtime(time.time())) + ']:'
 			color = 'fg_darkred'
 
-		self.text_dialog.insert(END, sender + '\n')
+		# self.text_dialog.insert(END, sender + '\n')
 		# self.text_dialog.insert(END, msg + '\n', color)
 		self.text_dialog.insert(END, msg, color)
 		self.text_dialog.see(END)
@@ -253,6 +313,8 @@ class Ui:
 			return cmd[:-2]
 		elif cmd.endswith('\n\n'):
 			return cmd[:-1]
+		elif cmd.endswith('\n'):
+			return cmd
 		else:
 			return cmd
 
@@ -263,7 +325,6 @@ class Ui:
 			return cmd[:-1]
 		else:
 			return cmd
-
 
 	def on_send_msg(self, x):
 		data = self.text_input.get(0.0, END)
@@ -297,8 +358,17 @@ class Ui:
 		else:
 			self.log.write('%s update_ui(): unknown type %s', MODULE, type)
 
-	def uart_dut_port_changed(self, x):
-		self.handle_data_from_ui('uart_dut_port_changed', self.uart_dut_port_var.get())
+	def uart_dut_port_connect(self):
+		self.handle_data_from_ui('uart_dut_port_connect', self.uart_dut_port_var.get())
+
+	def uart_dut_port_connect2(self, x):
+		self.uart_dut_port_connect();
+
+	def uart_dut_port_disconnect(self):
+		self.handle_data_from_ui('uart_dut_port_disconnect', self.uart_dut_port_var.get())
+
+	def uart_std_port_connect(self, x):
+		self.handle_data_from_ui('uart_std_port_connect', self.uart_std_port_var.get())
 
 	def set_win_geometry(self, win, width, height, div):
 		#win.update()
