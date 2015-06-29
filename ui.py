@@ -17,7 +17,7 @@ import config
 MODULE = '[UI]'
 
 SOFTWARE_NAME = 'ibaby校准软件'
-VERSION = 'v0.1'
+VERSION = 'v0.2'
 
 class Ui:
 
@@ -28,8 +28,10 @@ class Ui:
 
 		self.handle_data_from_ui = handle_data_from_ui
 
-		# get configs
-
+		# configs
+		self.sys_config = config.Config(self.log)
+		if not self.sys_config.get('zero_cal_adc0_standard'):
+			self.sys_config.set('zero_cal_adc0_standard', 3207)
 
 		# launch UI
 		self.ui_mainloop_thread = thread.start_new_thread(self.lanuch_ui, (None, ))
@@ -48,6 +50,9 @@ class Ui:
 		self.font_input = tkFont.Font(family = '宋体', size = 11, weight = "bold")
 
 		# String var
+		self.zero_cal_adc0_standard = StringVar()
+		self.zero_cal_adc0_standard.set(self.sys_config.get('zero_cal_adc0_standard'))
+
 		self.indicating_bar_var = StringVar()
 
 		self.uart_dut_port_var = StringVar()
@@ -55,7 +60,17 @@ class Ui:
 		self.uart_std_port_var = StringVar()
 		self.uart_std_status_var = StringVar()
 
-		self.self_zero_adc = StringVar()
+		self.hw_adc0_before_cal_var = StringVar()
+		self.adc0_delta_before_cal_var = StringVar()
+		self.adc0_before_cal_var = StringVar()
+		self.Rt_before_cal_var = StringVar()
+		self.Temp_before_cal_var = StringVar()
+
+		self.hw_adc0_after_cal_var = StringVar()
+		self.adc0_delta_after_cal_var = StringVar()
+		self.adc0_after_cal_var = StringVar()
+		self.Rt_after_cal_var = StringVar()
+		self.temp_after_cal_var = StringVar()
 
 		# menu
 		menu_base = Menu(main_win)
@@ -63,6 +78,7 @@ class Ui:
 
 		menu_cascade_set = Menu(menu_base, tearoff = 0)
 		menu_cascade_set.add_separator()
+		menu_cascade_set.add_command(label = "零点校准", command = self.menu_item_zero_cal)
 		menu_cascade_set.add_command(label = "退出", command = main_win.quit)
 		menu_base.add_cascade(label="设置", menu = menu_cascade_set)
 		
@@ -71,8 +87,12 @@ class Ui:
 		menu_cascade_help.add_separator()
 		menu_cascade_help.add_command(label = "使用说明", command = self.menu_item_readme)
 		menu_cascade_help.add_separator()
+		menu_cascade_help.add_command(label = "AT命令说明", command = self.menu_item_AT_usage)
+		menu_cascade_help.add_separator()
 		menu_cascade_help.add_command(label = "关于" + SOFTWARE_NAME, command = self.menu_item_about)
 		menu_base.add_cascade(label="帮助", menu = menu_cascade_help)
+
+
 
 		x_base = 10
 		y_base = 20
@@ -127,7 +147,7 @@ class Ui:
 		self.uart_dut.place(x = x_pos, y = y_pos, width = ww, height = hh)
 		self.uart_dut.bind("<KeyRelease-Return>", self.uart_dut_port_connect2)
 
-		l = Label(main_win, textvariable = self.uart_dut_status_var, anchor = 'w')
+		self.uart_dut_status = l = Label(main_win, textvariable = self.uart_dut_status_var, anchor = 'w')
 		l.config(fg = 'DarkBlue')
 		x_pos += ww + 10; y_pos += 0; ww = 80; hh = 25
 		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
@@ -168,82 +188,153 @@ class Ui:
 		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
 		self.button_std_disconnect.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		# Start main window
-		self.window_ok = True
-		self.main_win.mainloop()
-		# when running here, the main window is died
-		self.window_ok = False
+		x_base = 630
+		y_base = 100
+		x_pos = x_base
+		y_pos = y_base
 
-		# UART STD
-		l = Label(main_win, text = 'STD', anchor = 'w')
-		l.config(fg = 'DarkBlue')
-		l.place(x = 600, y = 70, width = 30, height = 25)
-
-		self.uart_std = Entry(main_win, width = 10, textvariable = self.uart_std_port_var)
-		self.uart_std.place(x = 640, y = 70, width = 90, height = 25)
-
-		l = Label(main_win, textvariable = self.uart_std_status_var, anchor = 'w')
-		l.config(fg = 'DarkBlue')
-		l.place(x = 750, y = 70, width = 70, height = 25)
-		self.uart_std_status_var.set('N/A')
-		l.config(fg = 'Grey')
-
-		# seperator
-		l = Label(main_win, text = '-----------------------零点校准-----------------------', anchor = 'w')
+		# First Line
+		l = Label(main_win, text = '------------------------------零点校准------------------------------', anchor = 'w')
 		l.config(fg = 'DarkGreen')
-		l.place(x = 600, y = 100, width = 300, height = 25)
+		x_pos += 0; y_pos += 0; ww = 370; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		# ADC
-		l = Label(main_win, text = 'ADC ', anchor = 'w')
+		# Second Line
+		l = Label(main_win, text = 'HW ADC', anchor = 'c')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 600, y = 130, width = 30, height = 25)
+		x_pos = x_base + 70; y_pos += hh; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		l = Label(main_win, textvariable = self.self_zero_adc, anchor = 'w')
+		l = Label(main_win, text = 'Delta', anchor = 'c')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 670, y = 130, width = 50, height = 25)
-		self.self_zero_adc.set('1000')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		l = Label(main_win, text = 'ADC偏差 ', anchor = 'w')
+		l = Label(main_win, text = 'ADC', anchor = 'c')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 600, y = 160, width = 60, height = 25)
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		l = Label(main_win, textvariable = self.self_zero_adc, anchor = 'w')
+		l = Label(main_win, text = 'Rt', anchor = 'c')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 670, y = 160, width = 50, height = 25)
-		self.self_zero_adc.set('1000')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		# R
-		l = Label(main_win, text = '电阻值 ', anchor = 'w')
+		l = Label(main_win, text = 'Temp', anchor = 'c')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 750, y = 130, width = 50, height = 25)
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		l = Label(main_win, textvariable = self.self_zero_adc, anchor = 'w')
+		# Third Line
+		l = Label(main_win, text = '校准前', anchor = 'c')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 820, y = 130, width = 50, height = 25)
-		self.self_zero_adc.set('1000')
+		x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		l = Label(main_win, text = '电阻偏差 ', anchor = 'w')
+		l = Label(main_win, textvariable = self.hw_adc0_before_cal_var, anchor = 'c')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 750, y = 160, width = 60, height = 25)
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.hw_adc0_before_cal_var.set('---')
 
-		l = Label(main_win, textvariable = self.self_zero_adc, anchor = 'w')
+		l = Label(main_win, textvariable = self.adc0_delta_before_cal_var, anchor = 'c')
 		l.config(fg = 'DarkBlue')
-		l.place(x = 820, y = 160, width = 50, height = 25)
-		self.self_zero_adc.set('1000')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.adc0_delta_before_cal_var.set('---')
 
-		self.button_zero_cal = Button(main_win, text = '开始零点校准', command = self.start_zero_cal, width = 10)
+		l = Label(main_win, textvariable = self.adc0_before_cal_var, anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww; y_pos += 0; ww = 60; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.adc0_before_cal_var.set('---')
+
+		l = Label(main_win, textvariable = self.Rt_before_cal_var, anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.Rt_before_cal_var.set('---')
+
+		l = Label(main_win, textvariable = self.Temp_before_cal_var, anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.Temp_before_cal_var.set('---')
+
+		# Forth Line
+		l = Label(main_win, text = '校准后', anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		l = Label(main_win, textvariable = self.hw_adc0_after_cal_var, anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.hw_adc0_after_cal_var.set('---')
+
+		l = Label(main_win, textvariable = self.adc0_delta_after_cal_var, anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.adc0_delta_after_cal_var.set('---')
+
+		l = Label(main_win, textvariable = self.adc0_after_cal_var, anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww; y_pos += 0; ww = 60; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.adc0_after_cal_var.set('---')
+
+		l = Label(main_win, textvariable = self.Rt_after_cal_var, anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.Rt_after_cal_var.set('---')
+
+		l = Label(main_win, textvariable = self.temp_after_cal_var, anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		x_pos += ww; y_pos += 0; ww = 55; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		self.temp_after_cal_var.set('---')
+
+		# Fifth Line
+
+		self.button_start_zero_cal = Button(main_win, text = '开始', command = self.start_zero_cal, width = 10)
 		# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
-		self.button_zero_cal.place(x = 700, y = 190, width = 80, height = 35)
+		x_pos = x_base + 5; y_pos += hh+10; ww = 80; hh = 25
+		self.button_start_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		# seperator
-		l = Label(main_win, text = '-----------------------低温校准-----------------------', anchor = 'w')
-		l.config(fg = 'DarkGreen')
-		l.place(x = 600, y = 240, width = 300, height = 25)
+		self.button_read_zero_cal = Button(main_win, text = '读取', command = self.read_zero_cal, width = 10)
+		# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+		x_pos += ww + 20; y_pos += 0; ww = 80; hh = 25
+		self.button_read_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		# seperator
-		l = Label(main_win, text = '-----------------------高温校准-----------------------', anchor = 'w')
+		self.button_clear_zero_cal = Button(main_win, text = '清除', command = self.clear_zero_cal, width = 10)
+		# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+		x_pos += ww + 100; y_pos += 0; ww = 55; hh = 25
+		self.button_clear_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		x_base = 630
+		y_base = 250
+		x_pos = x_base
+		y_pos = y_base
+
+		# First Line
+		l = Label(main_win, text = '------------------------------低温校准------------------------------', anchor = 'w')
 		l.config(fg = 'DarkGreen')
-		l.place(x = 600, y = 400, width = 300, height = 25)
+		x_pos += 0; y_pos += 0; ww = 370; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		x_base = 630
+		y_base = 450
+		x_pos = x_base
+		y_pos = y_base
+
+		# First Line
+		l = Label(main_win, text = '------------------------------高温校准------------------------------', anchor = 'w')
+		l.config(fg = 'DarkGreen')
+		x_pos += 0; y_pos += 0; ww = 370; hh = 25
+		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		# Start main window
 		self.window_ok = True
@@ -251,6 +342,23 @@ class Ui:
 		# when running here, the main window is died
 		self.window_ok = False
 
+	#
+	# setting Menu
+	#
+	def menu_item_zero_cal(self):
+		sub_w = Toplevel(self.main_win)
+		sub_w.title('零点校准设置')
+		self.set_win_geometry(sub_w, 350, 200, 4)
+
+		l = Label(sub_w, text = '理论ADC0值', anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		l.place(x = 30, y = 20, width = 100, height = 25)
+
+		e = Entry(sub_w, width = 15, textvariable = self.zero_cal_adc0_standard)
+		e.place(x = 200, y = 20, width = 100, height = 25)
+
+		b = Button(sub_w, text = '保存', command = self.zero_cal_setting_save, width = 10)
+		b.place(x = 150, y = 130, width = 80, height = 25)
 
 	#
 	# help Menu
@@ -278,6 +386,41 @@ class Ui:
 		t.insert(END, '3. 设置昵称' + '\n')
 		t.insert(END, '   点击菜单 设置->我的昵称，输入昵称' + '\n')
 
+	def menu_item_AT_usage(self):
+		sub_w = Toplevel(self.main_win)
+		sub_w.title('AT命令')
+		self.set_win_geometry(sub_w, 450, 350, 4)
+
+		t = Text(sub_w, height = 6, width=70, fg = 'blue')
+		t.place(x = 10, y = 10, width = 430, height = 330)
+		t.bind("<KeyPress>", lambda e : "break")
+		t.insert(END, 'AT              -> 测试串口通信' + '\n')
+		t.insert(END, 'AT+MODE=1/0     -> 设置模式，1校准模式，0正常模式' + '\n')
+		t.insert(END, 'AT+MODE         -> 查看当前模式' + '\n')
+		t.insert(END, 'AT+LDO=1/0      -> 设置LDO电平' + '\n')
+
+		t.insert(END, '\n')
+
+		t.insert(END, 'AT+HWADC0       -> 读取ADC通道0原始值' + '\n')
+		t.insert(END, 'AT+HWADC1       -> 读取ADC通道1原始值' + '\n')
+		t.insert(END, 'AT+ADC0         -> 读取ADC通道0校准后的值' + '\n')
+		t.insert(END, 'AT+ADC1         -> 读取ADC通道1校准后的值' + '\n')
+		t.insert(END, '\n')
+
+		t.insert(END, 'AT+ADC0DELTA=   -> 校准ADC0' + '\n')
+		t.insert(END, 'AT+ADC0DELTA    -> 读取ADC0校准值' + '\n')
+		t.insert(END, '\n')
+
+		t.insert(END, 'AT+CH0RT        -> 读取根据CH0 ADC计算得到的Rt' + '\n')
+		t.insert(END, 'AT+CH1RT        -> 读取根据CH1 ADC计算得到的Rt' + '\n')
+		t.insert(END, 'AT+CH0TEMP      -> 读取根据CH0 ADC计算得到的温度' + '\n')
+		t.insert(END, 'AT+CH1TEMP      -> 读取根据CH1 ADC计算得到的温度' + '\n')
+		t.insert(END, '\n')
+
+		t.insert(END, 'AT+BDELTA=      -> 校准B' + '\n')
+		t.insert(END, 'AT+BDELTA       -> 读取B的校准值' + '\n')
+		t.insert(END, 'AT+R25_DELTA=   -> 校准R25' + '\n')
+		t.insert(END, 'AT+R25_DELTA    -> 读取R25的校准值' + '\n')
 
 	def menu_item_about(self):
 		sub_w = Toplevel(self.main_win)
@@ -295,13 +438,18 @@ class Ui:
 		t.insert(END, '\n')
 		t.insert(END, '@All rights reserved' + '\n')
 
+	def zero_cal_setting_save(self):
+		adc0_standard = self.zero_cal_adc0_standard.get()
+		self.handle_data_from_ui('zero_cal_adc0_standard', adc0_standard)
+		self.sys_config.set('zero_cal_adc0_standard', adc0_standard)
+
 	def ui_append_dialog(self, type, msg):
 		if type == 'local':
 			sender = 'PC' + ' ['+ time.strftime('%H:%M:%S',time.localtime(time.time())) + ']:'
-			color = 'fg_blue'
+			color = 'fg_darkred'
 		else:
 			sender = 'Board' + ' ['+ time.strftime('%H:%M:%S',time.localtime(time.time())) + ']:'
-			color = 'fg_darkred'
+			color = 'fg_blue'
 
 		# self.text_dialog.insert(END, sender + '\n')
 		# self.text_dialog.insert(END, msg + '\n', color)
@@ -345,16 +493,48 @@ class Ui:
 		self.handle_data_from_ui('send_to_dut', data)
 
 	def start_zero_cal(self):
-		pass
+		self.handle_data_from_ui('start_zero_cal', None)
 
+	def read_zero_cal(self):
+		self.handle_data_from_ui('read_zero_cal', None)
 
-	def update_ui(self, type, data):
+	def clear_zero_cal(self):
+		self.handle_data_from_ui('clear_zero_cal', None)
+
+	def update_ui(self, type, data, data2):
 		if type == 'uart_dut_port': # set uart port
 			self.uart_dut_port_var.set(data)
+
 		elif type == 'uart_dut_status':
-			self.uart_dut_status_var.set(data)
+			if data == 'CONNECT':
+				self.uart_dut_status_var.set('连接')
+				# self.uart_dut_status.config(fg = 'DarkBlue')
+			elif data == 'DISCONNECT':
+				self.uart_dut_status_var.set('断开')
+				# self.uart_dut_status.config(fg = 'Red')
+
 		elif type == 'uart_std_status':
 			self.uart_std_status_var.set(data)
+
+		elif type == 'zero_cal_result':
+			self.hw_adc0_before_cal_var.set(data['hw_adc0_before_cal'])
+			self.adc0_delta_before_cal_var.set(data['adc0_delta_before_cal'])
+			self.adc0_before_cal_var.set(data['adc0_before_cal'])
+			self.Rt_before_cal_var.set(data['Rt_before_cal'])
+			self.Temp_before_cal_var.set(data['temp_before_cal'])
+
+			self.hw_adc0_after_cal_var.set(data['hw_adc0_after_cal'])
+			self.adc0_delta_after_cal_var.set(data['adc0_delta_after_cal'])
+			self.adc0_after_cal_var.set(data['adc0_after_cal'])
+			self.Rt_after_cal_var.set(data['Rt_after_cal'])
+			self.temp_after_cal_var.set(data['temp_after_cal'])
+
+		elif type == 'message_box_info':
+			tkMessageBox.showinfo(data, data2)
+
+		elif type == 'message_box_err':
+			tkMessageBox.showerror(data, data2)
+
 		else:
 			self.log.write('%s update_ui(): unknown type %s', MODULE, type)
 

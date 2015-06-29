@@ -7,6 +7,7 @@ import ui
 import log
 import uart
 import config
+import cal
 
 MODULE = '[ibaby]'
 
@@ -30,38 +31,40 @@ class Ibaby:
 
 		# Config
 		self.sys_config = config.Config(self.log)
+		if not self.sys_config.get('uart_dut_port'):
+			self.sys_config.set('uart_dut_port', 'com?')
+		if not self.sys_config.get('uart_std_port'):
+			self.sys_config.set('uart_std_port', 'com?')
 		self.uart_dut_port = self.sys_config.get('uart_dut_port')
 		self.uart_std_port = self.sys_config.get('uart_std_port')
 
 		# UART
 		self.uart_dut = uart.Uart(self.log, 'dut', self.uart_dut_recv, self.uart_status_change)
+		self.uart_dut_hijack = False
 		# self.uart_std = uart.Uart(self.log, 'std', self.uart_std_recv, self.uart_status_change)
 
+		# Calibration
+		self.cal = cal.Cal(self.log, self.uart_dut, self.ui)
+
 	def start(self):
-		self.ui.update_ui('uart_dut_port', self.uart_dut_port)
-		# self.ui.update_ui('uart_std_port', self.uart_std_port)
+		self.ui.update_ui('uart_dut_port', self.uart_dut_port, None)
+		# self.ui.update_ui('uart_std_port', self.uart_std_port, None)
 
 		if self.uart_dut_port:
-			self.uart_dut.open(self.uart_dut_port, 115200, 8, 'N', 1)
+			self.uart_dut.open(self.uart_dut_port, 115200, 8, 'N', 1, timeout=1)
 		# if self.uart_std_port:
 		# 	self.uart_std.open(self.uart_std_port, 115200, 8, 'N', 1)
 
 	def uart_status_change(self, type, status):
-		if status == 'open_ok':
-			data = '连接'
-		elif status == 'open_fail':
-			data = '断开'
-		elif status == 'close_ok':
-			data = '断开'
-
-		self.ui.update_ui('uart_' + type + '_status', data)
+		self.ui.update_ui('uart_' + type + '_status', status, None)
 
 	# get data from DUT UART
 	def uart_dut_recv(self, data):
 		# show it in UI
 		# print ">>>" + data,
 		self.ui.ui_append_dialog('board', data)
-		pass
+		if self.uart_dut_hijack:
+			self.cal.get_dut_resp(data)
 
 	# get data from STD UART, handle it
 	def uart_std_recv(self, data):
@@ -75,14 +78,72 @@ class Ibaby:
 			self.uart_dut_port = data
 			self.sys_config.set('uart_dut_port', self.uart_dut_port)
 
-			self.uart_dut.open(self.uart_dut_port, 115200, 8, 'N', 1)
+			self.uart_dut.open(self.uart_dut_port, 115200, 8, 'N', 1, timeout = 1)
 
 		elif type == 'uart_dut_port_disconnect':
 			self.uart_dut_port = data
 			self.uart_dut.close()
 
-		elif type == 'zero_calibration':
-			pass
+		elif type == 'zero_cal_adc0_standard':
+			self.cal.set_adc0_standard(data)
+
+		elif type == 'start_zero_cal':
+			self.ui.ui_append_dialog('local', '\n')
+			self.ui.ui_append_dialog('local', '---------------------\n')
+			self.ui.ui_append_dialog('local', '  start zero cal\n')
+			self.ui.ui_append_dialog('local', '---------------------\n')
+
+			self.uart_dut_hijack = True
+			ret = self.cal.start_zero_cal()
+			self.uart_dut_hijack = False
+			if ret:
+				self.ui.ui_append_dialog('local', '\n')
+				self.uart_dut_hijack = True
+				result = self.cal.read_zero_cal()
+				self.uart_dut_hijack = False
+				if result:
+					self.ui.update_ui('zero_cal_result', result, None)
+
+				self.ui.update_ui('message_box_info', '零点校准', '成功')
+			else:
+				self.ui.update_ui('message_box_err', '零点校准', '失败')
+
+		elif type == 'read_zero_cal':
+			self.ui.ui_append_dialog('local', '\n')
+			self.ui.ui_append_dialog('local', '---------------------\n')
+			self.ui.ui_append_dialog('local', '  read zero cal\n')
+			self.ui.ui_append_dialog('local', '---------------------\n')
+
+			self.uart_dut_hijack = True
+			ret = self.cal.read_zero_cal()
+			self.uart_dut_hijack = False
+			if ret:
+				self.ui.update_ui('zero_cal_result', ret, None)
+			else:
+				self.ui.update_ui('message_box_err', '读取零点校准', '失败')
+
+		elif type == 'clear_zero_cal':
+			self.ui.ui_append_dialog('local', '\n')
+			self.ui.ui_append_dialog('local', '---------------------\n')
+			self.ui.ui_append_dialog('local', '  clear zero cal\n')
+			self.ui.ui_append_dialog('local', '---------------------\n')
+
+			self.uart_dut_hijack = True
+			ret = self.cal.clear_zero_cal()
+			self.uart_dut_hijack = False
+
+			if ret:
+				self.ui.ui_append_dialog('local', '\n')
+				self.uart_dut_hijack = True
+				result = self.cal.read_zero_cal()
+				self.uart_dut_hijack = False
+				if result:
+					self.ui.update_ui('zero_cal_result', result, None)
+
+				self.ui.update_ui('message_box_info', '清除零点校准', '成功')
+			else:
+				self.ui.update_ui('message_box_err', '清除零点校准', '失败')
+
 		elif type == 'low_temp_calibration':
 			pass
 		elif type == 'high_temp_calibration':

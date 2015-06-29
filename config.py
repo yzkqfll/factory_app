@@ -5,7 +5,7 @@ import ConfigParser
 
 MODULE = '[config]'
 
-FILENAME = 'cfg'
+FILENAME = '.config'
 
 class Config:
 
