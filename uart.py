@@ -23,7 +23,7 @@ class Uart():
 
 		self.connected = False
 
-		self.uart_check_thread = thread.start_new_thread(self.uart_check, (None, ))
+		# self.uart_check_thread = thread.start_new_thread(self.uart_check, (None, ))
 		self.uart_recv_thread = thread.start_new_thread(self.auto_recv, (None, ))
 
 	def __exit__(self):

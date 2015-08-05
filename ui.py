@@ -30,8 +30,16 @@ class Ui:
 
 		# configs
 		self.sys_config = config.Config(self.log)
+
+		if not self.sys_config.get('mode'):
+			self.sys_config.set('mode', 'all')
+		self.mode = self.sys_config.get('mode')
+
 		if not self.sys_config.get('zero_cal_adc0_standard'):
 			self.sys_config.set('zero_cal_adc0_standard', 3207)
+
+		if not self.sys_config.get('adc0_stable_threshold'):
+			self.sys_config.set('adc0_stable_threshold', 20)
 
 		# launch UI
 		self.ui_mainloop_thread = thread.start_new_thread(self.lanuch_ui, (None, ))
@@ -43,15 +51,21 @@ class Ui:
 		# create main window
 		self.main_win = main_win = Tk()
 		main_win.title(SOFTWARE_NAME + VERSION)
-		self.set_win_geometry(main_win, 1000, 700, 6)
+		self.set_win_geometry(main_win, 1000, 730, 6)
 
 		# font
 		self.font_dialog = tkFont.Font(family = '宋体', size = 10, weight = "bold")
 		self.font_input = tkFont.Font(family = '宋体', size = 11, weight = "bold")
 
 		# String var
+		self.mode_var = StringVar()
+		self.mode_var.set(self.sys_config.get('mode'))
+
 		self.zero_cal_adc0_standard = StringVar()
 		self.zero_cal_adc0_standard.set(self.sys_config.get('zero_cal_adc0_standard'))
+
+		self.adc0_stable_threshold = StringVar()
+		self.adc0_stable_threshold.set(self.sys_config.get('adc0_stable_threshold'))
 
 		self.indicating_bar_var = StringVar()
 
@@ -72,13 +86,34 @@ class Ui:
 		self.Rt_after_cal_var = StringVar()
 		self.temp_after_cal_var = StringVar()
 
+		self.low_temp_cal_adc_var = StringVar()
+		self.low_temp_cal_R_low_var = StringVar()
+		self.low_temp_cal_t_low_var = StringVar()
+		self.low_temp_cal_t_std_var = StringVar()
+		self.low_temp_cal_t_delta_var = StringVar()
+
+		self.high_temp_cal_adc_var = StringVar()
+		self.high_temp_cal_R_high_var = StringVar()
+		self.high_temp_cal_t_high_var = StringVar()
+		self.high_temp_cal_t_std_var = StringVar()
+		self.high_temp_cal_t_delta_var = StringVar()
+
+		self.temp_cal_adc_var = StringVar()
+		self.temp_cal_B_delta_var = StringVar()
+		self.temp_cal_R25_delta_var = StringVar()
+		self.temp_cal_temp_var = StringVar()
+		self.temp_cal_t_std_var = StringVar()
+		self.temp_cal_t_delta_var = StringVar()
+
 		# menu
 		menu_base = Menu(main_win)
 		main_win.config(menu = menu_base)
 
 		menu_cascade_set = Menu(menu_base, tearoff = 0)
 		menu_cascade_set.add_separator()
+		menu_cascade_set.add_command(label = "模式设置", command = self.menu_item_mode)
 		menu_cascade_set.add_command(label = "零点校准", command = self.menu_item_zero_cal)
+		menu_cascade_set.add_command(label = "高低温校准", command = self.menu_item_temp_cal)
 		menu_cascade_set.add_command(label = "退出", command = main_win.quit)
 		menu_base.add_cascade(label="设置", menu = menu_cascade_set)
 		
@@ -92,8 +127,6 @@ class Ui:
 		menu_cascade_help.add_command(label = "关于" + SOFTWARE_NAME, command = self.menu_item_about)
 		menu_base.add_cascade(label="帮助", menu = menu_cascade_help)
 
-
-
 		x_base = 10
 		y_base = 20
 		x_pos = x_base
@@ -103,11 +136,11 @@ class Ui:
 		self.scrollbar = Scrollbar(main_win)
 		self.text_dialog = Text(main_win, height=20, width=70,
 									yscrollcommand = self.scrollbar.set, font = self.font_dialog, bg = 'gray')
-		x_pos += 0; y_pos += 0; ww = 600; hh = 500
+		x_pos += 0; y_pos += 0; ww = 600; hh = 550
 		self.text_dialog.place(x = x_pos, y = y_pos, width = ww, height = hh)
 		#t.bind("<KeyPress>", lambda e : "break")
 		self.scrollbar.config(command = self.text_dialog.yview)
-		x_pos += ww; y_pos += 0; ww = 20; hh = 500
+		x_pos += ww; y_pos += 0; ww = 20; hh = 550
 		self.scrollbar.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		self.text_dialog.tag_config('fg_blue',foreground = 'blue') # create tag
@@ -121,7 +154,7 @@ class Ui:
 
 		# text input
 		self.text_input = Text(main_win, height = 6, width=70, font = self.font_input)
-		x_pos = x_base; y_pos += hh; ww = 620; hh = 135
+		x_pos = x_base; y_pos += hh; ww = 620; hh = 110
 		self.text_input.place(x = x_pos, y = y_pos, width = ww, height = hh)
 		#t.bind("<Return>", self.on_send_msg)
 		self.text_input.bind("<KeyRelease-Return>", self.on_send_msg)
@@ -131,8 +164,8 @@ class Ui:
 		x_pos = x_base
 		y_pos = y_base
 
-		l = Label(main_win, text = '------------------------------串口信息------------------------------', anchor = 'w')
-		l.config(fg = 'DarkGreen')
+		l = Label(main_win, text = '                                       串口信息', anchor = 'w')
+		l.config(fg = 'white', bg = 'Black')
 		x_pos += 0; y_pos += 0; ww = 370; hh = 25
 		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
@@ -165,15 +198,15 @@ class Ui:
 		# UART STD
 		l = Label(main_win, text = 'STD', anchor = 'w')
 		l.config(fg = 'DarkBlue')
-		x_pos = x_base + 10; y_pos += 30; ww = 30; hh = 25
+		x_pos = x_base + 10; y_pos += hh; ww = 30; hh = 25
 		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		self.uart_std = Entry(main_win, width = 10, textvariable = self.uart_std_port_var)
 		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
 		self.uart_std.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.uart_std.bind("<KeyRelease-Return>", self.uart_std_port_connect)
+		self.uart_std.bind("<KeyRelease-Return>", self.uart_std_port_connect2)
 
-		l = Label(main_win, textvariable = self.uart_std_status_var, anchor = 'w')
+		self.uart_std_status = l = Label(main_win, textvariable = self.uart_std_status_var, anchor = 'w')
 		l.config(fg = 'DarkBlue')
 		x_pos += ww + 10; y_pos += 0; ww = 80; hh = 25
 		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
@@ -183,7 +216,7 @@ class Ui:
 		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
 		self.button_std_connect.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		self.button_std_disconnect = Button(main_win, text = '断开', command = self.uart_std_port_connect, width = 10)
+		self.button_std_disconnect = Button(main_win, text = '断开', command = self.uart_std_port_disconnect, width = 10)
 		# self.button_dut_disconnect['state'] = 'disabled'	if self.net.net_connected() else 'normal'
 		x_pos += ww + 10; y_pos += 0; ww = 60; hh = 25
 		self.button_std_disconnect.place(x = x_pos, y = y_pos, width = ww, height = hh)
@@ -193,148 +226,426 @@ class Ui:
 		x_pos = x_base
 		y_pos = y_base
 
-		# First Line
-		l = Label(main_win, text = '------------------------------零点校准------------------------------', anchor = 'w')
-		l.config(fg = 'DarkGreen')
-		x_pos += 0; y_pos += 0; ww = 370; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		if self.mode == 'test' or self.mode == 'all':
+			# First Line
+			l = Label(main_win, text = '                                       工装测试', anchor = 'w')
+			l.config(fg = 'white', bg = 'Black')
+			x_pos += 0; y_pos += 0; ww = 370; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
-		# Second Line
-		l = Label(main_win, text = 'HW ADC', anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos = x_base + 70; y_pos += hh; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		l = Label(main_win, text = 'Delta', anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		l = Label(main_win, text = 'ADC', anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		l = Label(main_win, text = 'Rt', anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		l = Label(main_win, text = 'Temp', anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		# Third Line
-		l = Label(main_win, text = '校准前', anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		l = Label(main_win, textvariable = self.hw_adc0_before_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.hw_adc0_before_cal_var.set('---')
-
-		l = Label(main_win, textvariable = self.adc0_delta_before_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.adc0_delta_before_cal_var.set('---')
-
-		l = Label(main_win, textvariable = self.adc0_before_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 60; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.adc0_before_cal_var.set('---')
-
-		l = Label(main_win, textvariable = self.Rt_before_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.Rt_before_cal_var.set('---')
-
-		l = Label(main_win, textvariable = self.Temp_before_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.Temp_before_cal_var.set('---')
-
-		# Forth Line
-		l = Label(main_win, text = '校准后', anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		l = Label(main_win, textvariable = self.hw_adc0_after_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.hw_adc0_after_cal_var.set('---')
-
-		l = Label(main_win, textvariable = self.adc0_delta_after_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.adc0_delta_after_cal_var.set('---')
-
-		l = Label(main_win, textvariable = self.adc0_after_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 60; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.adc0_after_cal_var.set('---')
-
-		l = Label(main_win, textvariable = self.Rt_after_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.Rt_after_cal_var.set('---')
-
-		l = Label(main_win, textvariable = self.temp_after_cal_var, anchor = 'c')
-		l.config(fg = 'DarkBlue')
-		x_pos += ww; y_pos += 0; ww = 55; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
-		self.temp_after_cal_var.set('---')
-
-		# Fifth Line
-
-		self.button_start_zero_cal = Button(main_win, text = '开始', command = self.start_zero_cal, width = 10)
-		# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
-		x_pos = x_base + 5; y_pos += hh+10; ww = 80; hh = 25
-		self.button_start_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		self.button_read_zero_cal = Button(main_win, text = '读取', command = self.read_zero_cal, width = 10)
-		# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
-		x_pos += ww + 20; y_pos += 0; ww = 80; hh = 25
-		self.button_read_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
-
-		self.button_clear_zero_cal = Button(main_win, text = '清除', command = self.clear_zero_cal, width = 10)
-		# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
-		x_pos += ww + 100; y_pos += 0; ww = 55; hh = 25
-		self.button_clear_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.button_start_test = Button(main_win, text = '开始', bg = 'SteelBlue', command = self.start_test, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos = x_base + 5; y_pos += hh+10; ww = 80; hh = 25
+			self.button_start_test.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		x_base = 630
-		y_base = 250
+		y_base = 200
 		x_pos = x_base
 		y_pos = y_base
 
-		# First Line
-		l = Label(main_win, text = '------------------------------低温校准------------------------------', anchor = 'w')
-		l.config(fg = 'DarkGreen')
-		x_pos += 0; y_pos += 0; ww = 370; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		if self.mode == 'zero' or self.mode == 'all':
+			# First Line
+			l = Label(main_win, text = '                                       零点校准', anchor = 'w')
+			l.config(fg = 'white', bg = 'Black')
+			x_pos += 0; y_pos += 0; ww = 370; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			# Second Line
+			l = Label(main_win, text = 'HW ADC', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos = x_base + 70; y_pos += hh; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Delta', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'ADC', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Rt', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Temp', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			# Third Line
+			l = Label(main_win, text = '校准前', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, textvariable = self.hw_adc0_before_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.hw_adc0_before_cal_var.set('---')
+
+			l = Label(main_win, textvariable = self.adc0_delta_before_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.adc0_delta_before_cal_var.set('---')
+
+			l = Label(main_win, textvariable = self.adc0_before_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 60; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.adc0_before_cal_var.set('---')
+
+			l = Label(main_win, textvariable = self.Rt_before_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.Rt_before_cal_var.set('---')
+
+			l = Label(main_win, textvariable = self.Temp_before_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.Temp_before_cal_var.set('---')
+
+			# Forth Line
+			l = Label(main_win, text = '校准后', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, textvariable = self.hw_adc0_after_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.hw_adc0_after_cal_var.set('---')
+
+			l = Label(main_win, textvariable = self.adc0_delta_after_cal_var, anchor = 'c')
+			l.config(fg = 'Magenta')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.adc0_delta_after_cal_var.set('---')
+
+			l = Label(main_win, textvariable = self.adc0_after_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 60; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.adc0_after_cal_var.set('---')
+
+			l = Label(main_win, textvariable = self.Rt_after_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.Rt_after_cal_var.set('---')
+
+			l = Label(main_win, textvariable = self.temp_after_cal_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.temp_after_cal_var.set('---')
+
+			# Fifth Line
+
+			self.button_start_zero_cal = Button(main_win, text = '开始', bg = 'SteelBlue', command = self.start_zero_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos = x_base + 5; y_pos += hh+10; ww = 80; hh = 25
+			self.button_start_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			self.button_read_zero_cal = Button(main_win, text = '读取', command = self.read_zero_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos += ww + 20; y_pos += 0; ww = 80; hh = 25
+			self.button_read_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			self.button_clear_zero_cal = Button(main_win, text = '清除', command = self.clear_zero_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos += ww + 100; y_pos += 0; ww = 55; hh = 25
+			self.button_clear_zero_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
 
 		x_base = 630
-		y_base = 450
+		y_base = 350
 		x_pos = x_base
 		y_pos = y_base
 
-		# First Line
-		l = Label(main_win, text = '------------------------------高温校准------------------------------', anchor = 'w')
-		l.config(fg = 'DarkGreen')
-		x_pos += 0; y_pos += 0; ww = 370; hh = 25
-		l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+		if self.mode == 'low' or self.mode == 'all':
+			# First Line
+			l = Label(main_win, text = '                                       低温校准', anchor = 'w')
+			l.config(fg = 'white', bg = 'Black')
+			x_pos += 0; y_pos += 0; ww = 370; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			# Second Line
+			l = Label(main_win, text = 'ADC', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos = x_base + 70; y_pos += hh; ww = 45; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Rlow', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Tlow', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Tstd', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 65; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Delta', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+
+			# Third Line
+			l = Label(main_win, text = '', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, textvariable = self.low_temp_cal_adc_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.low_temp_cal_adc_var.set('---')
+
+			l = Label(main_win, textvariable = self.low_temp_cal_R_low_var, anchor = 'c')
+			l.config(fg = 'Magenta')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.low_temp_cal_R_low_var.set('---')
+
+			l = Label(main_win, textvariable = self.low_temp_cal_t_low_var, anchor = 'c')
+			l.config(fg = 'Magenta')
+			x_pos += ww; y_pos += 0; ww = 60; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.low_temp_cal_t_low_var.set('---')
+
+			l = Label(main_win, textvariable = self.low_temp_cal_t_std_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.low_temp_cal_t_std_var.set('---')
+
+			l = Label(main_win, textvariable = self.low_temp_cal_t_delta_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.low_temp_cal_t_delta_var.set('---')
+
+			# Fifth Line
+
+			self.button_start_low_temp_cal = Button(main_win, text = '开始', bg = 'SteelBlue', command = self.start_low_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos = x_base + 5; y_pos += hh+10; ww = 80; hh = 25
+			self.button_start_low_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			self.button_read_low_temp_cal = Button(main_win, text = '读取', command = self.read_low_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos += ww + 20; y_pos += 0; ww = 80; hh = 25
+			self.button_read_low_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			self.button_clear_low_temp_cal = Button(main_win, text = '清除', command = self.clear_low_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos += ww + 100; y_pos += 0; ww = 55; hh = 25
+			self.button_clear_low_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		x_base = 630
+		y_base = 480
+		x_pos = x_base
+		y_pos = y_base
+
+		if self.mode == 'high' or self.mode == 'all':
+			# First Line
+			l = Label(main_win, text = '                                       高温校准', anchor = 'w')
+			l.config(fg = 'white', bg = 'Black')
+			x_pos += 0; y_pos += 0; ww = 370; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			# Second Line
+			l = Label(main_win, text = 'ADC', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos = x_base + 70; y_pos += hh; ww = 45; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Rhigh', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Thigh', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Tstd', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 65; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Delta', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+
+			# Third Line
+			l = Label(main_win, text = '', anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, textvariable = self.high_temp_cal_adc_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.high_temp_cal_adc_var.set('---')
+
+			l = Label(main_win, textvariable = self.high_temp_cal_R_high_var, anchor = 'c')
+			l.config(fg = 'Magenta')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.high_temp_cal_R_high_var.set('---')
+
+			l = Label(main_win, textvariable = self.high_temp_cal_t_high_var, anchor = 'c')
+			l.config(fg = 'Magenta')
+			x_pos += ww; y_pos += 0; ww = 60; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.high_temp_cal_t_high_var.set('---')
+
+			l = Label(main_win, textvariable = self.high_temp_cal_t_std_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.high_temp_cal_t_std_var.set('---')
+
+			l = Label(main_win, textvariable = self.high_temp_cal_t_delta_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.high_temp_cal_t_delta_var.set('---')
+
+			# Fifth Line
+
+			self.button_start_high_temp_cal = Button(main_win, text = '开始', bg = 'SteelBlue', command = self.start_high_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos = x_base + 5; y_pos += hh+10; ww = 80; hh = 25
+			self.button_start_high_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			self.button_read_high_temp_cal = Button(main_win, text = '读取', command = self.read_high_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos += ww + 20; y_pos += 0; ww = 80; hh = 25
+			self.button_read_high_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			self.button_clear_high_temp_cal = Button(main_win, text = '清除', command = self.clear_high_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos += ww + 100; y_pos += 0; ww = 55; hh = 25
+			self.button_clear_high_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+		x_base = 630
+		y_base = 610
+		x_pos = x_base
+		y_pos = y_base
+
+		if self.mode == 'high' or self.mode == 'all':
+			# First Line
+			l = Label(main_win, text = '                                       整体校准', anchor = 'w')
+			l.config(fg = 'white', bg = 'Black')
+			x_pos += 0; y_pos += 0; ww = 370; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			# Second Line
+			l = Label(main_win, text = 'ADC', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos = x_base + 20; y_pos += hh; ww = 45; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'B_delta', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos = x_base + 70; y_pos += 0; ww = 45; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = ' R25_delta', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 60; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Temp', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Tstd', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 65; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			l = Label(main_win, text = 'Delta', anchor = 'c')
+			l.config(fg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+
+			# Third Line
+			l = Label(main_win, textvariable = self.temp_cal_adc_var, anchor = 'c')
+			l.config(fg = 'DarkBlue')
+			x_pos = x_base + 5; y_pos += hh; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.temp_cal_adc_var.set('---')
+
+			l = Label(main_win, textvariable = self.temp_cal_B_delta_var, anchor = 'c')
+			l.config(fg = 'Magenta')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.temp_cal_B_delta_var.set('---')
+
+			l = Label(main_win, textvariable = self.temp_cal_R25_delta_var, anchor = 'c')
+			l.config(fg = 'Magenta')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.temp_cal_R25_delta_var.set('---')
+
+			l = Label(main_win, textvariable = self.temp_cal_temp_var, anchor = 'c')
+			l.config(fg = 'Yellow', bg = 'Dimgrey')
+			x_pos += ww; y_pos += 0; ww = 60; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.temp_cal_temp_var.set('---')
+
+			l = Label(main_win, textvariable = self.temp_cal_t_std_var, anchor = 'c')
+			l.config(fg = 'Yellow', bg = 'Dimgrey')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.temp_cal_t_std_var.set('---')
+
+			l = Label(main_win, textvariable = self.temp_cal_t_delta_var, anchor = 'c')
+			l.config(fg = 'Green', bg = 'Black')
+			x_pos += ww; y_pos += 0; ww = 55; hh = 25
+			l.place(x = x_pos, y = y_pos, width = ww, height = hh)
+			self.temp_cal_t_delta_var.set('---')
+
+			# Fifth Line
+			self.button_start_temp_cal = Button(main_win, text = '开始', bg = 'SteelBlue', command = self.start_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos = x_base + 5; y_pos += hh+10; ww = 80; hh = 25
+			self.button_start_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			self.button_read_temp_cal = Button(main_win, text = '读取', command = self.read_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos += ww + 20; y_pos += 0; ww = 80; hh = 25
+			self.button_read_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
+			self.button_clear_temp_cal = Button(main_win, text = '清除', command = self.clear_temp_cal, width = 10)
+			# self.button_zero_cal['state'] = 'disabled'	if self.net.net_connected() else 'normal'
+			x_pos += ww + 100; y_pos += 0; ww = 55; hh = 25
+			self.button_clear_temp_cal.place(x = x_pos, y = y_pos, width = ww, height = hh)
+
 
 		# Start main window
 		self.window_ok = True
@@ -345,6 +656,21 @@ class Ui:
 	#
 	# setting Menu
 	#
+	def menu_item_mode(self):
+		sub_w = Toplevel(self.main_win)
+		sub_w.title('模式设置')
+		self.set_win_geometry(sub_w, 350, 200, 4)
+
+		l = Label(sub_w, text = '工位', anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		l.place(x = 30, y = 20, width = 100, height = 25)
+
+		e = Entry(sub_w, width = 15, textvariable = self.mode_var)
+		e.place(x = 200, y = 20, width = 100, height = 25)
+
+		b = Button(sub_w, text = '保存', command = self.mode_setting_save, width = 10)
+		b.place(x = 150, y = 130, width = 80, height = 25)
+
 	def menu_item_zero_cal(self):
 		sub_w = Toplevel(self.main_win)
 		sub_w.title('零点校准设置')
@@ -358,6 +684,21 @@ class Ui:
 		e.place(x = 200, y = 20, width = 100, height = 25)
 
 		b = Button(sub_w, text = '保存', command = self.zero_cal_setting_save, width = 10)
+		b.place(x = 150, y = 130, width = 80, height = 25)
+
+	def menu_item_temp_cal(self):
+		sub_w = Toplevel(self.main_win)
+		sub_w.title('高低温校准设置')
+		self.set_win_geometry(sub_w, 350, 200, 4)
+
+		l = Label(sub_w, text = 'ADC0稳定门限值', anchor = 'c')
+		l.config(fg = 'DarkBlue')
+		l.place(x = 30, y = 20, width = 100, height = 25)
+
+		e = Entry(sub_w, width = 15, textvariable = self.adc0_stable_threshold)
+		e.place(x = 200, y = 20, width = 100, height = 25)
+
+		b = Button(sub_w, text = '保存', command = self.temp_cal_setting_save, width = 10)
 		b.place(x = 150, y = 130, width = 80, height = 25)
 
 	#
@@ -394,33 +735,7 @@ class Ui:
 		t = Text(sub_w, height = 6, width=70, fg = 'blue')
 		t.place(x = 10, y = 10, width = 430, height = 330)
 		t.bind("<KeyPress>", lambda e : "break")
-		t.insert(END, 'AT              -> 测试串口通信' + '\n')
-		t.insert(END, 'AT+MODE=1/0     -> 设置模式，1校准模式，0正常模式' + '\n')
-		t.insert(END, 'AT+MODE         -> 查看当前模式' + '\n')
-		t.insert(END, 'AT+LDO=1/0      -> 设置LDO电平' + '\n')
-
-		t.insert(END, '\n')
-
-		t.insert(END, 'AT+HWADC0       -> 读取ADC通道0原始值' + '\n')
-		t.insert(END, 'AT+HWADC1       -> 读取ADC通道1原始值' + '\n')
-		t.insert(END, 'AT+ADC0         -> 读取ADC通道0校准后的值' + '\n')
-		t.insert(END, 'AT+ADC1         -> 读取ADC通道1校准后的值' + '\n')
-		t.insert(END, '\n')
-
-		t.insert(END, 'AT+ADC0DELTA=   -> 校准ADC0' + '\n')
-		t.insert(END, 'AT+ADC0DELTA    -> 读取ADC0校准值' + '\n')
-		t.insert(END, '\n')
-
-		t.insert(END, 'AT+CH0RT        -> 读取根据CH0 ADC计算得到的Rt' + '\n')
-		t.insert(END, 'AT+CH1RT        -> 读取根据CH1 ADC计算得到的Rt' + '\n')
-		t.insert(END, 'AT+CH0TEMP      -> 读取根据CH0 ADC计算得到的温度' + '\n')
-		t.insert(END, 'AT+CH1TEMP      -> 读取根据CH1 ADC计算得到的温度' + '\n')
-		t.insert(END, '\n')
-
-		t.insert(END, 'AT+BDELTA=      -> 校准B' + '\n')
-		t.insert(END, 'AT+BDELTA       -> 读取B的校准值' + '\n')
-		t.insert(END, 'AT+R25_DELTA=   -> 校准R25' + '\n')
-		t.insert(END, 'AT+R25_DELTA    -> 读取R25的校准值' + '\n')
+		t.insert(END, '输入 ATCMD' + '\n')
 
 	def menu_item_about(self):
 		sub_w = Toplevel(self.main_win)
@@ -438,22 +753,43 @@ class Ui:
 		t.insert(END, '\n')
 		t.insert(END, '@All rights reserved' + '\n')
 
+	def mode_setting_save(self):
+		self.mode = self.mode_var.get()
+		self.sys_config.set('mode', self.mode)
+
 	def zero_cal_setting_save(self):
 		adc0_standard = self.zero_cal_adc0_standard.get()
 		self.handle_data_from_ui('zero_cal_adc0_standard', adc0_standard)
 		self.sys_config.set('zero_cal_adc0_standard', adc0_standard)
 
+	def temp_cal_setting_save(self):
+		threshold = self.adc0_stable_threshold.get()
+		self.handle_data_from_ui('adc0_stable_threshold', threshold)
+		self.sys_config.set('adc0_stable_threshold', threshold)
+
 	def ui_append_dialog(self, type, msg):
-		if type == 'local':
+		if type == 'to_dut':
 			sender = 'PC' + ' ['+ time.strftime('%H:%M:%S',time.localtime(time.time())) + ']:'
 			color = 'fg_darkred'
+		elif type == 'from_dut':
+			sender = 'DUT' + ' ['+ time.strftime('%H:%M:%S',time.localtime(time.time())) + ']:'
+			color = 'fg_blue'
+		elif type == 'to_std':
+			sender = 'ts' + ' ['+ time.strftime('%H:%M:%S',time.localtime(time.time())) + ']:'
+			color = 'fg_blue'
+		elif type == 'from_std':
+			sender = 'fs' + ' ['+ time.strftime('%H:%M:%S',time.localtime(time.time())) + ']:'
+			color = 'fg_blue'
 		else:
-			sender = 'Board' + ' ['+ time.strftime('%H:%M:%S',time.localtime(time.time())) + ']:'
+			sender = 'unknown'
 			color = 'fg_blue'
 
-		# self.text_dialog.insert(END, sender + '\n')
-		# self.text_dialog.insert(END, msg + '\n', color)
-		self.text_dialog.insert(END, msg, color)
+		if type == 'to_std' or type == 'from_std':
+			self.text_dialog.insert(END, sender + ' ')
+			self.text_dialog.insert(END, msg, color)
+		else:
+			self.text_dialog.insert(END, msg, color)
+
 		self.text_dialog.see(END)
 
 	def remove_duplicated_cr(self, cmd):
@@ -492,6 +828,9 @@ class Ui:
 		# data = self.remove_cr(data)
 		self.handle_data_from_ui('send_to_dut', data)
 
+	def start_test(self):
+		self.handle_data_from_ui('start_test', None)
+
 	def start_zero_cal(self):
 		self.handle_data_from_ui('start_zero_cal', None)
 
@@ -500,6 +839,33 @@ class Ui:
 
 	def clear_zero_cal(self):
 		self.handle_data_from_ui('clear_zero_cal', None)
+
+	def start_low_temp_cal(self):
+		self.handle_data_from_ui('start_low_temp_cal', None)
+
+	def read_low_temp_cal(self):
+		self.handle_data_from_ui('read_low_temp_cal', None)
+
+	def clear_low_temp_cal(self):
+		self.handle_data_from_ui('clear_low_temp_cal', None)
+
+	def start_high_temp_cal(self):
+		self.handle_data_from_ui('start_high_temp_cal', None)
+
+	def read_high_temp_cal(self):
+		self.handle_data_from_ui('read_high_temp_cal', None)
+
+	def clear_high_temp_cal(self):
+		self.handle_data_from_ui('clear_high_temp_cal', None)
+
+	def start_temp_cal(self):
+		self.handle_data_from_ui('start_temp_cal', None)
+
+	def read_temp_cal(self):
+		self.handle_data_from_ui('read_temp_cal', None)
+
+	def clear_temp_cal(self):
+		self.handle_data_from_ui('clear_temp_cal', None)
 
 	def update_ui(self, type, data, data2):
 		if type == 'uart_dut_port': # set uart port
@@ -513,8 +879,16 @@ class Ui:
 				self.uart_dut_status_var.set('断开')
 				# self.uart_dut_status.config(fg = 'Red')
 
+		elif type == 'uart_std_port': # set uart port
+			self.uart_std_port_var.set(data)
+
 		elif type == 'uart_std_status':
-			self.uart_std_status_var.set(data)
+			if data == 'CONNECT':
+				self.uart_std_status_var.set('连接')
+				# self.uart_std_status.config(fg = 'DarkBlue')
+			elif data == 'DISCONNECT':
+				self.uart_std_status_var.set('断开')
+				# self.uart_std_status.config(fg = 'Red')
 
 		elif type == 'zero_cal_result':
 			self.hw_adc0_before_cal_var.set(data['hw_adc0_before_cal'])
@@ -529,6 +903,28 @@ class Ui:
 			self.Rt_after_cal_var.set(data['Rt_after_cal'])
 			self.temp_after_cal_var.set(data['temp_after_cal'])
 
+		elif type == 'low_temp_cal_result':
+			self.low_temp_cal_adc_var.set(data['adc0'])
+			self.low_temp_cal_R_low_var.set(data['R_low'])
+			self.low_temp_cal_t_low_var.set(data['t_low'])
+			self.low_temp_cal_t_std_var.set(data['t_std'])
+			self.low_temp_cal_t_delta_var.set(data['t_delta'])
+
+		elif type == 'high_temp_cal_result':
+			self.high_temp_cal_adc_var.set(data['adc0'])
+			self.high_temp_cal_R_high_var.set(data['R_high'])
+			self.high_temp_cal_t_high_var.set(data['t_high'])
+			self.high_temp_cal_t_std_var.set(data['t_std'])
+			self.high_temp_cal_t_delta_var.set(data['t_delta'])
+
+		elif type == 'temp_cal_result':
+			self.temp_cal_adc_var.set(data['adc0'])
+			self.temp_cal_B_delta_var.set(data['B_delta'])
+			self.temp_cal_R25_delta_var.set(data['R25_delta'])
+			self.temp_cal_temp_var.set(data['temp'])
+			self.temp_cal_t_std_var.set(data['t_std'])
+			self.temp_cal_t_delta_var.set(data['t_delta'])
+
 		elif type == 'message_box_info':
 			tkMessageBox.showinfo(data, data2)
 
@@ -542,13 +938,19 @@ class Ui:
 		self.handle_data_from_ui('uart_dut_port_connect', self.uart_dut_port_var.get())
 
 	def uart_dut_port_connect2(self, x):
-		self.uart_dut_port_connect();
+		self.uart_dut_port_connect()
 
 	def uart_dut_port_disconnect(self):
 		self.handle_data_from_ui('uart_dut_port_disconnect', self.uart_dut_port_var.get())
 
-	def uart_std_port_connect(self, x):
+	def uart_std_port_connect(self):
 		self.handle_data_from_ui('uart_std_port_connect', self.uart_std_port_var.get())
+
+	def uart_std_port_connect2(self, x):
+		self.uart_std_port_connect()
+
+	def uart_std_port_disconnect(self):
+		self.handle_data_from_ui('uart_std_port_disconnect', self.uart_std_port_var.get())
 
 	def set_win_geometry(self, win, width, height, div):
 		#win.update()
