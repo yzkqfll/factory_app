@@ -8,6 +8,7 @@ import thread
 import serial
 import ftplib
 import os
+import socket
 
 MODULE = '[NET]'
 
@@ -59,3 +60,15 @@ class Net():
 		except:
 			self.del_file(name)
 			return -1
+
+	def send_udp_to_server(self, server, port, data):
+		sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		to = (server, port)
+
+		try:
+			sock.sendto(data, to)
+		except:
+			pass
+		finally:
+			sock.close()
+

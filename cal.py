@@ -12,6 +12,9 @@ MODULE = '[calibration]'
 AT_CMD = 'AT'
 AT_MODE = 'AT+MODE='
 AT_MODE_Q = 'AT+MODE'
+
+AT_MAC_Q = 'AT+MAC'
+
 AT_LDO = 'AT+LDO='
 AT_LDO_Q = 'AT+LDO'
 AT_ADC0 = 'AT+ADC0'
@@ -177,6 +180,12 @@ class Cal:
 		# 		return False
 
 	def start_zero_cal(self):
+		cmd = '%s\n' %AT_MAC_Q
+		resp = self.dut_send_and_get_resp(cmd)
+		mac = re.match(r'^([a-f0-9A-F]{2}:){3}[a-f0-9A-F]{2}$', resp)
+		if not mac:
+			return (False, "获取MAC失败")
+
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
@@ -201,7 +210,13 @@ class Cal:
 		if not s:
 			return (False, '设置ADC0 DELTA失败')
 		else:
-			return (True, 'OK')
+			return (True,
+					{
+						'TYPE' : 'ZEROCAL',
+						'MAC' : mac,
+						'HWADC' : hw_adc0,
+						'delta' : delta,
+					})
 
 	def read_zero_cal(self):
 		cmd = '%s1\n' %AT_MODE

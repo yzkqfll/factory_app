@@ -13,6 +13,7 @@ import random
 import net
 import threading
 import datetime
+import pickle
 
 MODULE = '[ibaby]'
 
@@ -148,6 +149,10 @@ class Ibaby:
 			self.uart_dut_hijack = False
 
 			if ret:
+				fd = open('user_op_result.pkl', 'wb')
+				pickle.dump(ret, fd)
+				fd.close()
+
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
 				result = self.cal.read_zero_cal()
