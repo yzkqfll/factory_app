@@ -453,11 +453,11 @@ class Ibaby:
 			
 		self.ui.exit()
 		
-if __name__ == '__main__':
-	ibaby = Ibaby()
-	ibaby.start()
-	ibaby.run()
-		
+#if __name__ == '__main__':
+#	ibaby = Ibaby()
+#	ibaby.start()
+#	ibaby.run()
+
 	
 	
 	

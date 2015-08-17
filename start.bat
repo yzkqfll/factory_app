@@ -1,1 +1,1 @@
-C:\Python27\python.exe main.py
+C:\Python27\python.exe start.py
