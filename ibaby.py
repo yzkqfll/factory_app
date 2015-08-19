@@ -14,6 +14,7 @@ import net
 import threading
 import datetime
 import pickle
+import os
 
 MODULE = '[ibaby]'
 
@@ -59,8 +60,8 @@ class Ibaby:
 		self.cal = cal.Cal(self.log, self.uart_dut, self.uart_std, self.ui)
 
 	def start(self):
-		self.ui.update_ui('uart_dut_port', self.uart_dut_port, None)
-		self.ui.update_ui('uart_std_port', self.uart_std_port, None)
+		self.ui.update_ui('uart_dut_port', self.uart_dut_port)
+		self.ui.update_ui('uart_std_port', self.uart_std_port)
 
 		if self.uart_dut_port:
 			self.uart_dut.open(self.uart_dut_port, 115200, 8, 'N', 1, timeout=1)
@@ -68,7 +69,7 @@ class Ibaby:
 			self.uart_std.open(self.uart_std_port, 115200, 8, 'N', 1, timeout=1)
 
 	def uart_status_change(self, type, status):
-		self.ui.update_ui('uart_' + type + '_status', status, None)
+		self.ui.update_ui('uart_' + type + '_status', status)
 
 	# get data from DUT UART
 	def uart_dut_recv(self, data):
@@ -133,10 +134,10 @@ class Ibaby:
 			self.uart_dut_hijack = True
 			ret = self.cal.start_test()
 			self.uart_dut_hijack = False
-			if ret:
+			if ret['RESULT'] == 'PASS':
 				self.ui.update_ui('message_box_info', '工装测试', '20秒后请检查输出结果')
 			else:
-				self.ui.update_ui('message_box_err', '工装测试', '失败')
+				self.ui.update_ui('message_box_err', '工装测试', '失败: %s' %ret['INFO'])
 
 		elif type == 'start_zero_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -145,24 +146,26 @@ class Ibaby:
 			self.ui.ui_append_dialog('local', '---------------------\n')
 
 			self.uart_dut_hijack = True
-			(ret, info) = self.cal.start_zero_cal()
+			ret = self.cal.start_zero_cal()
 			self.uart_dut_hijack = False
 
-			if ret:
-				fd = open('user_op_result.pkl', 'wb')
-				pickle.dump(ret, fd)
-				fd.close()
+			if ret['RESULT'] == 'PASS':
+				if os.path.exists('user_op_result.pkl'):
+					os.remove('user_op_result.pkl')
+				# fd = open('user_op_result.pkl', 'wb')
+				# pickle.dump(ret, fd)
+				# fd.close()
 
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
-				result = self.cal.read_zero_cal()
+				ret = self.cal.read_zero_cal()
 				self.uart_dut_hijack = False
-				if result:
-					self.ui.update_ui('zero_cal_result', result, None)
+				if ret['RESULT'] == 'PASS':
+					self.ui.update_ui('zero_cal_result', ret)
 
-				self.ui.update_ui('message_box_info', '零点校准', '成功')
+				self.ui.update_ui('message_box_info', {'title' : '零点校准', 'RESULT' : 'PASS'})
 			else:
-				self.ui.update_ui('message_box_err', '零点校准', '失败: \n\n' + info)
+				self.ui.update_ui('message_box_err', {'title' : '零点校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'read_zero_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -173,10 +176,10 @@ class Ibaby:
 			self.uart_dut_hijack = True
 			ret = self.cal.read_zero_cal()
 			self.uart_dut_hijack = False
-			if ret:
-				self.ui.update_ui('zero_cal_result', ret, None)
+			if ret['RESULT'] == 'PASS':
+				self.ui.update_ui('zero_cal_result', ret)
 			else:
-				self.ui.update_ui('message_box_err', '读取零点校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '读取零点校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'clear_zero_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -188,17 +191,17 @@ class Ibaby:
 			ret = self.cal.clear_zero_cal()
 			self.uart_dut_hijack = False
 
-			if ret:
+			if ret['RESULT'] == 'PASS':
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
-				result = self.cal.read_zero_cal()
+				ret = self.cal.read_zero_cal()
 				self.uart_dut_hijack = False
-				if result:
-					self.ui.update_ui('zero_cal_result', result, None)
+				if ret['RESULT'] == 'PASS':
+					self.ui.update_ui('zero_cal_result', ret)
 
-				self.ui.update_ui('message_box_info', '清除零点校准', '成功')
+				self.ui.update_ui('message_box_info', {'title' : '清除零点校准', 'RESULT' : 'PASS'})
 			else:
-				self.ui.update_ui('message_box_err', '清除零点校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '清除零点校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'start_low_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -209,17 +212,17 @@ class Ibaby:
 			self.uart_dut_hijack = True
 			ret = self.cal.start_low_temp_cal()
 			self.uart_dut_hijack = False
-			if ret:
+			if ret['RESULT'] == 'PASS':
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
-				result = self.cal.read_low_temp_cal()
+				ret = self.cal.read_low_temp_cal()
 				self.uart_dut_hijack = False
-				if result:
-					self.ui.update_ui('low_temp_cal_result', result, None)
+				if ret['RESULT'] == 'PASS':
+					self.ui.update_ui('low_temp_cal_result', ret)
 
-				self.ui.update_ui('message_box_info', '低温校准', '成功')
+				self.ui.update_ui('message_box_info', {'title' : '低温校准', 'RESULT' : 'PASS'})
 			else:
-				self.ui.update_ui('message_box_err', '低温校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '低温校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'read_low_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -230,10 +233,10 @@ class Ibaby:
 			self.uart_dut_hijack = True
 			ret = self.cal.read_low_temp_cal()
 			self.uart_dut_hijack = False
-			if ret:
-				self.ui.update_ui('low_temp_cal_result', ret, None)
+			if ret['RESULT'] == 'PASS':
+				self.ui.update_ui('low_temp_cal_result', ret)
 			else:
-				self.ui.update_ui('message_box_err', '读取低温校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '读取低温校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'clear_low_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -245,17 +248,17 @@ class Ibaby:
 			ret = self.cal.clear_low_temp_cal()
 			self.uart_dut_hijack = False
 
-			if ret:
+			if ret['RESULT'] == 'PASS':
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
-				result = self.cal.read_low_temp_cal()
+				ret = self.cal.read_low_temp_cal()
 				self.uart_dut_hijack = False
-				if result:
-					self.ui.update_ui('low_temp_cal_result', result, None)
+				if ret['RESULT'] == 'PASS':
+					self.ui.update_ui('low_temp_cal_result', ret)
 
-				self.ui.update_ui('message_box_info', '清除低温校准', '成功')
+				self.ui.update_ui('message_box_info', {'title' : '清除低温校准', 'RESULT' : 'PASS'})
 			else:
-				self.ui.update_ui('message_box_err', '清除低温校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '清除低温校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'start_high_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -266,17 +269,17 @@ class Ibaby:
 			self.uart_dut_hijack = True
 			ret = self.cal.start_high_temp_cal()
 			self.uart_dut_hijack = False
-			if ret:
+			if ret['RESULT'] == 'PASS':
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
-				result = self.cal.read_high_temp_cal()
+				ret = self.cal.read_high_temp_cal()
 				self.uart_dut_hijack = False
-				if result:
-					self.ui.update_ui('high_temp_cal_result', result, None)
+				if ret['RESULT'] == 'PASS':
+					self.ui.update_ui('high_temp_cal_result', ret)
 
-				self.ui.update_ui('message_box_info', '高温校准', '成功')
+				self.ui.update_ui('message_box_info', {'title' : '高温校准', 'RESULT' : 'PASS'})
 			else:
-				self.ui.update_ui('message_box_err', '高温校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '高温校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'read_high_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -287,10 +290,10 @@ class Ibaby:
 			self.uart_dut_hijack = True
 			ret = self.cal.read_high_temp_cal()
 			self.uart_dut_hijack = False
-			if ret:
-				self.ui.update_ui('high_temp_cal_result', ret, None)
+			if ret['RESULT'] == 'PASS':
+				self.ui.update_ui('high_temp_cal_result', ret)
 			else:
-				self.ui.update_ui('message_box_err', '读取高温校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '读取高温校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'clear_high_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -302,17 +305,17 @@ class Ibaby:
 			ret = self.cal.clear_high_temp_cal()
 			self.uart_dut_hijack = False
 
-			if ret:
+			if ret['RESULT'] == 'PASS':
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
-				result = self.cal.read_high_temp_cal()
+				ret = self.cal.read_high_temp_cal()
 				self.uart_dut_hijack = False
-				if result:
-					self.ui.update_ui('high_temp_cal_result', result, None)
+				if ret['RESULT'] == 'PASS':
+					self.ui.update_ui('high_temp_cal_result', ret)
 
-				self.ui.update_ui('message_box_info', '清除高温校准', '成功')
+				self.ui.update_ui('message_box_info', {'title' : '清除高温校准', 'RESULT' : 'PASS'})
 			else:
-				self.ui.update_ui('message_box_err', '清除高温校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '清除高温校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'start_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -321,19 +324,19 @@ class Ibaby:
 			self.ui.ui_append_dialog('local', '---------------------\n')
 
 			self.uart_dut_hijack = True
-			(ret, info) = self.cal.start_temp_cal()
+			ret = self.cal.start_temp_cal()
 			self.uart_dut_hijack = False
-			if ret:
+			if ret['RESULT'] == 'PASS':
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
-				result = self.cal.read_temp_cal()
+				ret = self.cal.read_temp_cal()
 				self.uart_dut_hijack = False
-				if result:
-					self.ui.update_ui('temp_cal_result', result, None)
+				if ret['RESULT'] == 'PASS':
+					self.ui.update_ui('temp_cal_result', ret)
 
-				self.ui.update_ui('message_box_info', '温度校准', '成功')
+				self.ui.update_ui('message_box_info', {'title' : '温度校准', 'RESULT' : 'PASS'})
 			else:
-				self.ui.update_ui('message_box_err', '温度校准', '失败\n\n' + info)
+				self.ui.update_ui('message_box_err', {'title' : '温度校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'read_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -344,10 +347,10 @@ class Ibaby:
 			self.uart_dut_hijack = True
 			ret = self.cal.read_temp_cal()
 			self.uart_dut_hijack = False
-			if ret:
-				self.ui.update_ui('temp_cal_result', ret, None)
+			if ret['RESULT'] == 'PASS':
+				self.ui.update_ui('temp_cal_result', ret)
 			else:
-				self.ui.update_ui('message_box_err', '读取温度校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '读取温度校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		elif type == 'clear_temp_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -359,23 +362,23 @@ class Ibaby:
 			ret = self.cal.clear_temp_cal()
 			self.uart_dut_hijack = False
 
-			if ret:
+			if ret['RESULT'] == 'PASS':
 				self.ui.ui_append_dialog('local', '\n')
 				self.uart_dut_hijack = True
-				result = self.cal.read_temp_cal()
+				ret = self.cal.read_temp_cal()
 				self.uart_dut_hijack = False
-				if result:
-					self.ui.update_ui('temp_cal_result', result, None)
+				if ret['RESULT'] == 'PASS':
+					self.ui.update_ui('temp_cal_result', ret)
 
-				self.ui.update_ui('message_box_info', '清除温度校准', '成功')
+				self.ui.update_ui('message_box_info', {'title' : '清除温度校准', 'RESULT' : 'PASS'})
 			else:
-				self.ui.update_ui('message_box_err', '清除温度校准', '失败')
+				self.ui.update_ui('message_box_err', {'title' : '清除温度校准', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
 
 		else:
 			print 'unknown type' + type
 
 	def get_local_err_percent(self):
-		f = open('LICENSE','r+')
+		f = open('ReleaseNote','r+')
 		f.seek(0, 0)
 		buf = f.readline()
 		buf = f.readline()

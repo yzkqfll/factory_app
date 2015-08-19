@@ -867,7 +867,7 @@ class Ui:
 	def clear_temp_cal(self):
 		self.handle_data_from_ui('clear_temp_cal', None)
 
-	def update_ui(self, type, data, data2):
+	def update_ui(self, type, data):
 		if type == 'uart_dut_port': # set uart port
 			self.uart_dut_port_var.set(data)
 
@@ -926,10 +926,10 @@ class Ui:
 			self.temp_cal_t_delta_var.set(data['t_delta'])
 
 		elif type == 'message_box_info':
-			tkMessageBox.showinfo(data, data2)
+			tkMessageBox.showinfo(data['title'], data['RESULT'])
 
 		elif type == 'message_box_err':
-			tkMessageBox.showerror(data, data2)
+			tkMessageBox.showerror(data['title'], data['RESULT'])
 
 		else:
 			self.log.write('%s update_ui(): unknown type %s', MODULE, type)

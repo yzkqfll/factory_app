@@ -1,3 +1,71 @@
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 2, June 1990
 
-V0.3
-	增加自动检测串口断开功能
+ Copyright (C) 1989, 1991 Free Software Foundation, Inc., <http://fsf.org/>
+ 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+commit fcf64dafa76d81de6fb8b7637e09b4fee51caadb
+Author: Ganesh Mahendran <opensource.ganesh@gmail.com>
+Date:   Mon Aug 17 15:51:26 2015 +0800
+
+    misc add
+
+    Signed-off-by: Ganesh Mahendran <opensource.ganesh@gmail.com>
+
+commit e7258a200bb00bc1bd962722d567eba42a331efc
+Author: Ganesh Mahendran <opensource.ganesh@gmail.com>
+Date:   Mon Aug 17 11:08:10 2015 +0800
+
+    MISC ADD
+
+    Signed-off-by: Ganesh Mahendran <opensource.ganesh@gmail.com>
+
+commit c500f7f7807cfd0de12d3ff987cea3d9a03fdc08
+Author: Ganesh Mahendran <opensource.ganesh@gmail.com>
+Date:   Wed Aug 5 15:44:23 2015 +0800
+
+    misc submit
+
+    Signed-off-by: Ganesh Mahendran <opensource.ganesh@gmail.com>
+
+commit 82880286311e8c42d0bdbe984e0d5bb64562b5cc
+Author: Ganesh Mahendran <opensource.ganesh@gmail.com>
+Date:   Mon Jun 29 21:18:47 2015 +0800
+
+    MISC
+
+    Signed-off-by: Ganesh Mahendran <opensource.ganesh@gmail.com>
+
+commit d5f68eac94c31444a04ceda6d3e31b178dead1bd
+Author: Ganesh Mahendran <opensource.ganesh@gmail.com>
+Date:   Sat Jun 27 08:50:47 2015 +0800
+
+    misc
+
+    Signed-off-by: Ganesh Mahendran <opensource.ganesh@gmail.com>
+
+commit 98a09cc0ce5bbbacc20b01074091ec4ca456bf16
+Author: Ganesh Mahendran <opensource.ganesh@gmail.com>
+Date:   Fri Jun 19 23:16:29 2015 +0800
+
+    UART: fix uart send issue
+
+    The data from user input should be converted to unicode
+
+    Signed-off-by: Ganesh Mahendran <opensource.ganesh@gmail.com>
+
+commit fc0b99f22d9984ea02cea07c1692ee0ec25ad20f
+Author: Ganesh Mahendran <opensource.ganesh@gmail.com>
+Date:   Fri Jun 19 16:02:49 2015 +0800
+
+    Init version
+
+    Signed-off-by: Ganesh Mahendran <opensource.ganesh@gmail.com>
+
+commit 89d8ca3628310cc4d9e2b6cea404585fb2b529f8
+Author: yzkqfll <yzkqfll@163.com>
+Date:   Fri Jun 19 15:48:06 2015 +0800
+
+    Initial commit

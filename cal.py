@@ -151,16 +151,33 @@ class Cal:
 				self.wait_sec(1)
 
 	def start_test(self):
+		cmd = '%s\n' %AT_MAC_Q
+		resp = self.dut_send_and_get_resp(cmd)
+		mac = re.match(r'^([a-f0-9A-F]{2}:){5}[a-f0-9A-F]{2}$', resp)
+		print resp
+		if not mac:
+			return {'TYPE' : 'TEST',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '获取MAC失败' }
+
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'TEST',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		cmd = '%s\n' %AT_STEST
 		self.dut_send_and_get_resp(cmd)
 
-		return True
+		return {'TYPE' : 'TEST',
+				'MAC' : mac,
+				'RESULT' : 'PASS',
+				'INFO' : 'N/A' }
+
 		# cnt = 0
 		# while True:
 		# 	self.wait_sec(1)
@@ -182,15 +199,21 @@ class Cal:
 	def start_zero_cal(self):
 		cmd = '%s\n' %AT_MAC_Q
 		resp = self.dut_send_and_get_resp(cmd)
-		mac = re.match(r'^([a-f0-9A-F]{2}:){3}[a-f0-9A-F]{2}$', resp)
+		mac = re.match(r'^([a-f0-9A-F]{2}:){5}[a-f0-9A-F]{2}$', resp)
 		if not mac:
-			return (False, "获取MAC失败")
+			return {'TYPE' : 'ZEROCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '获取MAC失败' }
 
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return (False, "切换到校准模式失败")
+			return {'TYPE' : 'ZEROCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		cmd = '%s\n' %AT_HWADC0
 		resp = self.dut_send_and_get_resp(cmd)
@@ -198,32 +221,43 @@ class Cal:
 		if s:
 			hw_adc0 = int(s.group(1))
 		else:
-			return (False, '读取HWADC0失败')
+			return {'TYPE' : 'ZEROCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '读取HWADC0失败' }
 
 		delta = self.adc0_standard - hw_adc0
 		if abs(delta) > 100:
-			return (False, '偏差超出正常范围')
+			return {'TYPE' : 'ZEROCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '偏差超出正常范围 %d' %delta }
 
 		cmd = AT_ADC0_DELTA  + str(delta) + '\n'
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return (False, '设置ADC0 DELTA失败')
+			return {'TYPE' : 'ZEROCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '设置ADC0 DELTA失败' }
 		else:
-			return (True,
-					{
-						'TYPE' : 'ZEROCAL',
-						'MAC' : mac,
-						'HWADC' : hw_adc0,
-						'delta' : delta,
-					})
+			return {'TYPE' : 'ZEROCAL',
+					'MAC' : mac,
+					'RESULT' : 'PASS',
+					'HWADC' : hw_adc0,
+					'delta' : delta,
+					}
 
 	def read_zero_cal(self):
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'READZEROCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		cmd = '%s\n' %AT_HWADC0
 		resp = self.dut_send_and_get_resp(cmd)
@@ -231,7 +265,10 @@ class Cal:
 		if s:
 			hw_adc0 = int(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'READZEROCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '读取HWADC0失败' }
 
 		cmd = '%s\n' %AT_ADC0_DELTA_Q
 		resp = self.dut_send_and_get_resp(cmd)
@@ -239,7 +276,10 @@ class Cal:
 		if s:
 			adc0_delta = int(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'READZEROCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '读取ADC0 Delta失败' }
 
 		adc0_before_cal = hw_adc0
 		Rt_before_cal = self.get_Rt_by_ch0(adc0_before_cal)
@@ -249,7 +289,11 @@ class Cal:
 		Rt_after_cal = self.get_Rt_by_ch0(adc0_after_cal)
 		temp_after_cal = self.get_temp_by_Rt(Rt_after_cal, 0, 0)
 
-		return {'hw_adc0_before_cal' : hw_adc0,
+		return {'TYPE' : 'READZEROCAL',
+				'MAC' : 'N/A',
+				'RESULT' : 'PASS',
+
+				'hw_adc0_before_cal' : hw_adc0,
 				'adc0_delta_before_cal' : 0,
 				'adc0_before_cal' : adc0_before_cal,
 				'Rt_before_cal' : '%.4f' %Rt_before_cal,
@@ -267,22 +311,48 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'CLEARZEROCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		cmd = '%s0\n' %AT_ADC0_DELTA
 		resp = self.dut_send_and_get_resp(cmd)
 
-		return resp == 'OK'
+		if resp == 'OK':
+			return {'TYPE' : 'CLEARZEROCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'PASS' }
+		else:
+			return {'TYPE' : 'CLEARZEROCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd}
 
 	def start_low_temp_cal(self):
-		if not self.check_adc_stable():
-			return False
+		cmd = '%s\n' %AT_MAC_Q
+		resp = self.dut_send_and_get_resp(cmd)
+		mac = re.match(r'^([a-f0-9A-F]{2}:){5}[a-f0-9A-F]{2}$', resp)
+		if not mac:
+			return {'TYPE' : 'LOWTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '获取MAC失败' }
 
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'LOWTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
+
+		if not self.check_adc_stable():
+			return {'TYPE' : 'LOWTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '温度还未稳定，请重试'}
 
 		# get R_low
 		cmd = '%s\n' %AT_CH0RT
@@ -291,7 +361,10 @@ class Cal:
 		if s:
 			R_low = float(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'LOWTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '获取CH0 Rt 失败'}
 
 		# get t_low from std board
 		cmd = '%s\n' %AT_TEMP0
@@ -300,7 +373,10 @@ class Cal:
 		if s:
 			t_low = float(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'LOWTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '获取标准温度计温度失败'}
 
 		# write to board
 		cmd = '%s%.4f,%.4f\n' %(AT_LOW_TEMP_CAL, R_low, t_low)
@@ -308,16 +384,26 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'LOWTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd}
 		else:
-			return True
+			return {'TYPE' : 'LOWTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'PASS',
+					'R_low' : '%.4f' %R_low,
+					't_low' : '%.4f' %t_low,}
 
 	def read_low_temp_cal(self):
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'READLOWTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		cmd = '%s\n' %AT_ADC0
 		resp = self.dut_send_and_get_resp(cmd)
@@ -325,7 +411,10 @@ class Cal:
 		if s:
 			adc0 = int(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'READLOWTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '读取ADC0失败' }
 
 		cmd = '%s\n' %AT_LOW_TEMP_CAL_Q
 		resp = self.dut_send_and_get_resp(cmd)
@@ -334,7 +423,10 @@ class Cal:
 			R_low = float(s.group(1))
 			t_low = float(s.group(2))
 		else:
-			return False
+			return {'TYPE' : 'READLOWTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd }
 
 		# get t_std from std board
 		cmd = '%s\n' %AT_TEMP0
@@ -347,7 +439,11 @@ class Cal:
 
 		t_delta = t_low - t_std
 
-		return {'adc0'  : adc0,
+		return {'TYPE' : 'READLOWTEMPCAL',
+				'MAC' : 'N/A',
+				'RESULT' : 'PASS',
+
+				'adc0'  : adc0,
 				'R_low' : '%.4f' %R_low,
 				't_low' : '%.4f' %t_low,
 				't_std' : '%.4f' %t_std,
@@ -359,7 +455,10 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'CLEARLOWTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		# write to board
 		cmd = '%s%.4f,%.4f\n' %(AT_LOW_TEMP_CAL, 0, 0)
@@ -367,19 +466,39 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'CLEARLOWTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd }
 		else:
-			return True
+			return {'TYPE' : 'CLEARLOWTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'PASS' }
 
 	def start_high_temp_cal(self):
-		if not self.check_adc_stable():
-			return False
+		cmd = '%s\n' %AT_MAC_Q
+		resp = self.dut_send_and_get_resp(cmd)
+		mac = re.match(r'^([a-f0-9A-F]{2}:){5}[a-f0-9A-F]{2}$', resp)
+		if not mac:
+			return {'TYPE' : 'HIGHTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '获取MAC失败' }
 
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'HIGHTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
+
+		if not self.check_adc_stable():
+			return {'TYPE' : 'HIGHTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '温度还未稳定，请重试'}
 
 		# get R_high
 		cmd = '%s\n' %AT_CH0RT
@@ -388,7 +507,10 @@ class Cal:
 		if s:
 			R_high = float(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'HIGHTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '获取CH0 Rt 失败'}
 
 		# get t_high from std board
 		cmd = '%s\n' %AT_TEMP0
@@ -397,8 +519,10 @@ class Cal:
 		if s:
 			t_high = float(s.group(1))
 		else:
-			# print resp
-			return False
+			return {'TYPE' : 'HIGHTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '获取标准温度计温度失败'}
 
 		# write to board
 		cmd = '%s%.4f,%.4f\n' %(AT_HIGH_TEMP_CAL, R_high, t_high)
@@ -406,16 +530,26 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'HIGHTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd}
 		else:
-			return True
+			return {'TYPE' : 'HIGHTEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'PASS',
+					'R_high' : '%.4f' %R_high,
+					't_high' : '%.4f' %t_high}
 
 	def read_high_temp_cal(self):
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'READHIGHTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		cmd = AT_ADC0  + '\n'
 		resp = self.dut_send_and_get_resp(cmd)
@@ -423,7 +557,10 @@ class Cal:
 		if s:
 			adc0 = int(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'READHIGHTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '读取ADC0失败' }
 
 		cmd = '%s\n' %AT_HIGH_TEMP_CAL_Q
 		resp = self.dut_send_and_get_resp(cmd)
@@ -432,7 +569,10 @@ class Cal:
 			R_high = float(s.group(1))
 			t_high = float(s.group(2))
 		else:
-			return False
+			return {'TYPE' : 'READHIGHTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd }
 
 		# get t_std from std board
 		cmd = '%s\n' %AT_TEMP0
@@ -445,7 +585,11 @@ class Cal:
 
 		t_delta = t_high - t_std
 
-		return {'adc0'  : adc0,
+		return {'TYPE' : 'READHIGHTEMPCAL',
+				'MAC' : 'N/A',
+				'RESULT' : 'PASS',
+
+				'adc0'  : adc0,
 				'R_high' : '%.4f' %R_high,
 				't_high' : '%.4f' %t_high,
 				't_std' : '%.4f' %t_std,
@@ -457,7 +601,10 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'CLEARHIGHTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		# write to board
 		cmd = '%s%.4f,%.4f\n' %(AT_HIGH_TEMP_CAL, 0, 0)
@@ -465,9 +612,14 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'CLEARHIGHTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd }
 		else:
-			return True
+			return {'TYPE' : 'CLEARHIGHTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'PASS' }
 
 	# R25 = R1*(R1/R2)^[(A-B)/(B-C)]
 	# B(25/50)=[1/(B-C)]*ln(R1/R2)
@@ -484,14 +636,30 @@ class Cal:
 		return (B25_50 - 3950, R25 - 100.0)
 
 	def start_temp_cal(self):
+		cmd = '%s\n' %AT_MAC_Q
+		resp = self.dut_send_and_get_resp(cmd)
+		mac = re.match(r'^([a-f0-9A-F]{2}:){5}[a-f0-9A-F]{2}$', resp)
+		if not mac:
+			return {'TYPE' : 'TEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '获取MAC失败' }
+
 		# check whether low temp cal completed
 		cmd = '%s\n' %AT_LOW_TEMP_CAL_Q
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.search(r'^\+LOWTEMPCAL:(\d+.\d+),(\d+.\d+)$', resp)
 		if not s:
-			return (False, '读取低温校准信息失败')
-		if not cmp(s.group(1), '0.000000') or not cmp(s.group(2), '0.000000'):
-			return (False, '低温校准信息格式不正确: %s', resp)
+			return {'TYPE' : 'TEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '读取低温校准信息失败'}
+
+		if not cmp(s.group(1), '0.0000') or not cmp(s.group(2), '0.0000'):
+			return {'TYPE' : 'TEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '低温校准信息格式不正确: %s' %resp }
 
 		R_low = float(s.group(1))
 		t_low = float(s.group(2))
@@ -501,31 +669,55 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.search(r'^\+HIGHTEMPCAL:(\d+.\d+),(\d+.\d+)$', resp)
 		if not s:
-			return (False, '读取高温校准信息失败')
-		if not cmp(s.group(1), '0.000000') or not cmp(s.group(2), '0.000000'):
-			return (False, '高温校准信息格式不正确: %s', resp)
+			return {'TYPE' : 'TEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '读取高温校准信息失败'}
+		if not cmp(s.group(1), '0.0000') or not cmp(s.group(2), '0.0000'):
+			return {'TYPE' : 'TEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '高温校准信息格式不正确: %s' %resp }
 
 		R_high = float(s.group(1))
 		t_high = float(s.group(2))
 
 		(B_delta, R25_delta) = self.cal_temp_delta(R_low, t_low, R_high, t_high)
 		if abs(B_delta) > 100 or abs(R25_delta) > 2:
-			return (False, 'B_delta %f 或 R25_delta %f 超出范围' %(B_delta, R25_delta))
+			return {'TYPE' : 'TEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : 'B_delta %f 或 R25_delta %f 超出范围' %(B_delta, R25_delta) }
 
 		cmd = '%s%.4f,%.4f\n' %(AT_TEMP_CAL, B_delta, R25_delta)
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return (False, '设置B_delta&R25_delta 失败')
+			return {'TYPE' : 'TEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd }
 		else:
-			return (True, 'OK')
+			return {'TYPE' : 'TEMPCAL',
+					'MAC' : mac,
+					'RESULT' : 'PASS',
+					'R_low' : '%.4f' %R_low,
+					't_low' : '%.4f' %t_low,
+					'R_high' : '%.4f' %R_high,
+					't_high' : '%.4f' %t_high,
+					'B_delta' : '%.4f' %B_delta,
+					'R25_delta' : '%.4f' %R25_delta,
+					}
 
 	def read_temp_cal(self):
 		cmd = '%s1\n' %AT_MODE
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'READTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		cmd = '%s\n' %AT_ADC0
 		resp = self.dut_send_and_get_resp(cmd)
@@ -533,7 +725,10 @@ class Cal:
 		if s:
 			adc0 = int(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'READTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '读取ADC0失败' }
 
 		cmd = '%s\n' %AT_TEMP_CAL_Q
 		resp = self.dut_send_and_get_resp(cmd)
@@ -543,7 +738,10 @@ class Cal:
 			B_delta = float(s.group(1))
 			R25_delta = float(s.group(2))
 		else:
-			return False
+			return {'TYPE' : 'READTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd }
 
 		# get temp
 		cmd = '%s\n' %AT_TEMP0
@@ -552,7 +750,10 @@ class Cal:
 		if s:
 			temp = float(s.group(1))
 		else:
-			return False
+			return {'TYPE' : 'READTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '获取CH0 TEMP失败' }
 
 		# get t_std from std board
 		cmd = '%s\n' %AT_TEMP0
@@ -565,7 +766,11 @@ class Cal:
 
 		t_delta = temp - t_std
 
-		return {'adc0'  : adc0,
+		return {'TYPE' : 'READTEMPCAL',
+				'MAC' : 'N/A',
+				'RESULT' : 'PASS',
+
+				'adc0'  : adc0,
 				'B_delta' : '%.4f' %B_delta,
 				'R25_delta' : '%.4f' %R25_delta,
 				'temp' : '%.4f' %temp,
@@ -578,7 +783,10 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'CLEARTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '切换到校准模式失败' }
 
 		# write to board
 		cmd = '%s%.4f,%.4f\n' %(AT_TEMP_CAL, 0, 0)
@@ -586,9 +794,14 @@ class Cal:
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.match(r'^OK$', resp)
 		if not s:
-			return False
+			return {'TYPE' : 'CLEARTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'FAIL',
+					'INFO' : '执行 %s 失败' %cmd }
 		else:
-			return True
+			return {'TYPE' : 'CLEARTEMPCAL',
+					'MAC' : 'N/A',
+					'RESULT' : 'PASS' }
 
 	def set_adc0_standard(self, val):
 		self.adc0_standard = int(val)
