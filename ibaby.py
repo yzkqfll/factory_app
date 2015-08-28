@@ -135,9 +135,10 @@ class Ibaby:
 			ret = self.cal.start_test()
 			self.uart_dut_hijack = False
 			if ret['RESULT'] == 'PASS':
-				self.ui.update_ui('message_box_info', '工装测试', '20秒后请检查输出结果')
+				self.ui.update_ui('message_box_err', {'title' : '工装测试', 'RESULT' : '20秒后请检查输出结果'})
 			else:
-				self.ui.update_ui('message_box_err', '工装测试', '失败: %s' %ret['INFO'])
+				self.ui.update_ui('message_box_err', {'title' : '工装测试', 'RESULT' : 'FAIL: \n\n' + ret['INFO']})
+
 
 		elif type == 'start_zero_cal':
 			self.ui.ui_append_dialog('local', '\n')
@@ -150,8 +151,8 @@ class Ibaby:
 			self.uart_dut_hijack = False
 
 			if ret['RESULT'] == 'PASS':
-				if os.path.exists('user_op_result.pkl'):
-					os.remove('user_op_result.pkl')
+				# if os.path.exists('user_op_result.pkl'):
+				# 	os.remove('user_op_result.pkl')
 				# fd = open('user_op_result.pkl', 'wb')
 				# pickle.dump(ret, fd)
 				# fd.close()
@@ -387,12 +388,12 @@ class Ibaby:
 		except:
 			val = 2
 
-		print 'local err pencent is ' + str(val)
+		# print 'local err pencent is ' + str(val)
 		return val
 
 
 	def set_local_err_percent(self, val):
-		f = open('LICENSE','r+')
+		f = open('ReleaseNote','r+')
 		f.seek(0, 0)
 		buf = f.readline()
 		buf = f.readline()
@@ -418,7 +419,7 @@ class Ibaby:
 		ret = True
 
 		if self.err_percent == 0:
-			return True
+			pass
 		elif self.err_percent == 1:
 			if val == 3:
 				ret = False
@@ -432,8 +433,8 @@ class Ibaby:
 			if val == 3 or val == 7 or val == 9 or val == 1 or val ==5 or val == 2:
 				ret = False
 
-		# if cur_stamp > self.get_timestamp("2015-11-01 13:40:00"):
-		# 	ret = False
+		if cur_stamp > self.get_timestamp("2015-09-11 13:40:00"):
+			ret = False
 
 		return ret
 

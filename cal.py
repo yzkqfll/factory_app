@@ -683,7 +683,7 @@ class Cal:
 		t_high = float(s.group(2))
 
 		(B_delta, R25_delta) = self.cal_temp_delta(R_low, t_low, R_high, t_high)
-		if abs(B_delta) > 100 or abs(R25_delta) > 2:
+		if abs(B_delta) > 200 or abs(R25_delta) > 4:
 			return {'TYPE' : 'TEMPCAL',
 					'MAC' : mac,
 					'RESULT' : 'FAIL',
