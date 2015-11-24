@@ -433,7 +433,7 @@ class Ibaby:
 			if val == 3 or val == 7 or val == 9 or val == 1 or val ==5 or val == 2:
 				ret = False
 
-		if cur_stamp > self.get_timestamp("2015-09-11 13:40:00"):
+		if cur_stamp > self.get_timestamp("2015-12-18 20:40:00") or cur_stamp < self.get_timestamp("2015-11-18 20:40:00"):
 			ret = False
 
 		return ret

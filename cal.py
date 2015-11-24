@@ -29,6 +29,9 @@ AT_TEMP1 = 'AT+CH1TEMP'
 AT_ADC0_DELTA = 'AT+ADC0DELTA='
 AT_ADC0_DELTA_Q = 'AT+ADC0DELTA'
 
+AT_ADC1_K = 'AT+ADC1K='
+AT_ADC1_K_Q = 'AT+ADC1K'
+
 AT_LOW_TEMP_CAL = 'AT+LOWTEMPCAL='
 AT_LOW_TEMP_CAL_Q = 'AT+LOWTEMPCAL'
 AT_HIGH_TEMP_CAL = 'AT+HIGHTEMPCAL='
@@ -215,6 +218,30 @@ class Cal:
 					'RESULT' : 'FAIL',
 					'INFO' : '切换到校准模式失败' }
 
+		# ADC1
+		cmd = '%s\n' %AT_HWADC1
+		resp = self.dut_send_and_get_resp(cmd)
+		s = re.search(r'^\+HWADC1:(\d+)$', resp)
+		if s:
+			hw_adc1 = int(s.group(1))
+		else:
+			return {'TYPE' : 'ZEROCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '读取HWADC1失败' }
+
+		k = 4096.0 / hw_adc1
+
+		cmd = '%s%.2f\n' %(AT_ADC1_K, k)
+		resp = self.dut_send_and_get_resp(cmd)
+		s = re.match(r'^OK$', resp)
+		if not s:
+			return {'TYPE' : 'ZEROCAL',
+					'MAC' : mac,
+					'RESULT' : 'FAIL',
+					'INFO' : '设置ADC1 K失败' }
+
+		# ADC0
 		cmd = '%s\n' %AT_HWADC0
 		resp = self.dut_send_and_get_resp(cmd)
 		s = re.search(r'^\+HWADC0:(\d+)$', resp)

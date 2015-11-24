@@ -5,7 +5,7 @@ import zipfile
 
 RELEASE_DIR = 'ibaby-release'
 
-release_file = ()
+release_file = 'ibaby.zip'
 
 class ReleasePacket:
     def __init__(self):
@@ -17,6 +17,9 @@ class ReleasePacket:
             shutil.rmtree(RELEASE_DIR)
 
         os.mkdir(RELEASE_DIR)
+		
+        if os.path.isfile(release_file):
+            os.remove(release_file)
 
         for root, dirname, filenames in os.walk('.\\'):
             if root== '.\\':
@@ -32,7 +35,7 @@ class ReleasePacket:
         for root, dirname, filenames in os.walk(RELEASE_DIR):
             for file in filenames:
                 files.append(os.path.join(root, file))
-        zip = zipfile.ZipFile('ibaby.zip', "w", zipfile.zlib.DEFLATED)
+        zip = zipfile.ZipFile(release_file, "w", zipfile.zlib.DEFLATED)
         for file in files:
             zip.write(file)
         zip.close()
